@@ -1,0 +1,74 @@
+syntax = "proto3";
+package storage;
+
+option go_package = "./proto";
+
+// ─── Main Service ────────────────────────────────────────────
+service StorageNode {
+  rpc StoreShard    (StoreShardRequest)    returns (StoreShardResponse);
+  rpc RetrieveShard (RetrieveShardRequest) returns (RetrieveShardResponse);
+  rpc DeleteShard   (DeleteShardRequest)   returns (DeleteShardResponse);
+  rpc HealthCheck   (HealthRequest)        returns (HealthResponse);
+  rpc GetStats      (StatsRequest)         returns (StatsResponse);
+}
+
+// ─── Store Shard ─────────────────────────────────────────────
+message StoreShardRequest {
+  string file_id       = 1;
+  int32  shard_index   = 2;
+  bytes  data          = 3;
+  string checksum      = 4;
+  bool   is_parity     = 5;
+  int64  original_size = 6;
+}
+
+message StoreShardResponse {
+  bool   success  = 1;
+  string shard_id = 2;
+  string message  = 3;
+}
+
+// ─── Retrieve Shard ──────────────────────────────────────────
+message RetrieveShardRequest {
+  string file_id     = 1;
+  int32  shard_index = 2;
+}
+
+message RetrieveShardResponse {
+  bytes  data     = 1;
+  string checksum = 2;
+  bool   found    = 3;
+}
+
+// ─── Delete Shard ────────────────────────────────────────────
+message DeleteShardRequest {
+  string file_id     = 1;
+  int32  shard_index = 2;
+}
+
+message DeleteShardResponse {
+  bool success = 1;
+}
+
+// ─── Health Check ────────────────────────────────────────────
+message HealthRequest {}
+
+message HealthResponse {
+  bool   healthy        = 1;
+  string node_id        = 2;
+  int64  storage_used   = 3;
+  int64  storage_total  = 4;
+  int64  uptime_seconds = 5;
+  int32  shard_count    = 6;
+}
+
+// ─── Stats ───────────────────────────────────────────────────
+message StatsRequest {}
+
+message StatsResponse {
+  string node_id       = 1;
+  int64  total_reads   = 2;
+  int64  total_writes  = 3;
+  int64  bytes_stored  = 4;
+  double avg_latency   = 5;
+}

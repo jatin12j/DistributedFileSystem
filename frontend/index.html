@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DFS — Distributed File Storage</title>
+  <!-- Demo Mode styles -->
+  <style>
+    .demo-banner { display:none; background:linear-gradient(135deg,#1a1000,#2d1f00); border-bottom:1px solid rgba(234,179,8,0.4); padding:10px 32px; text-align:center; font-size:0.8rem; color:#fbbf24; }
+    .demo-banner strong { color:#fde68a; }
+    .demo-banner a { color:#fde68a; text-decoration:underline; cursor:pointer; }
+  </style>
+  <meta name="description" content="Reed-Solomon Erasure Coding over a 4-node distributed storage cluster. Upload, download, and survive node failures.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- HEADER                                                   -->
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- Demo Mode Banner -->
+<div class="demo-banner" id="demo-banner">
+  ⚡ <strong>Demo Mode</strong> — Backend not detected. Running fully in-browser simulation.
+  All uploads/downloads use your browser's localStorage. No data leaves your device.
+  <a onclick="resetBackendProbe(); location.reload();">[ Retry real backend ]</a>
+</div>
+
+<header id="site-header">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-icon">⬡</div>
+      <div>
+        <h1 class="brand-title">DistFS</h1>
+        <p class="brand-sub">Reed-Solomon Distributed Storage</p>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="arch-pills">
+        <span class="pill pill-go">Go Coordinator</span>
+        <span class="pill-sep">↔ gRPC ↔</span>
+        <span class="pill pill-cpp">C++ Nodes ×4</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <span id="cluster-badge" class="cluster-badge">Connecting…</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- NODE GRID                                                -->
+<!-- ════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-nodes">
+  <div class="section-header">
+    <h2 class="section-title">
+      <span class="sec-icon">📡</span> Storage Nodes
+    </h2>
+    <span class="section-hint">Live • refreshes every 3s</span>
+  </div>
+  <div class="node-grid" id="node-grid">
+    <div class="skeleton-card"></div>
+    <div class="skeleton-card"></div>
+    <div class="skeleton-card"></div>
+    <div class="skeleton-card"></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- STATS BAR                                                -->
+<!-- ════════════════════════════════════════════════════════ -->
+<section class="section stats-section">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value" id="stat-nodes">—</div>
+      <div class="stat-label">Online Nodes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="file-count">0</div>
+      <div class="stat-label">Files Stored</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-status">—</div>
+      <div class="stat-label">Cluster Health</div>
+    </div>
+    <div class="stat-card stat-card-wide">
+      <div class="stat-value stat-summary" id="stat-summary">Connecting…</div>
+      <div class="stat-label">Status</div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- UPLOAD                                                   -->
+<!-- ════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-upload">
+  <div class="section-header">
+    <h2 class="section-title">
+      <span class="sec-icon">📤</span> Upload File
+    </h2>
+    <span class="section-hint">Max 100 MB · 3+1 Reed-Solomon sharding</span>
+  </div>
+
+  <div class="upload-zone" id="drop-zone"
+       onclick="document.getElementById('file-input').click()"
+       role="button" tabindex="0"
+       onkeypress="if(event.key==='Enter') document.getElementById('file-input').click()">
+    <div class="upload-glow"></div>
+    <div class="upload-body">
+      <div class="upload-icon-wrap">
+        <span class="upload-icon">📁</span>
+      </div>
+      <div class="upload-cta">
+        Drop file here or <strong>click to browse</strong>
+      </div>
+      <div class="upload-sub">
+        File will be split into <span class="hl">3 data</span> +
+        <span class="hl-orange">1 parity</span> shard across 4 nodes
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="file-input" style="display:none" aria-label="Select file to upload">
+
+  <div id="progress-wrap" style="display:none">
+    <div class="progress-label">Encoding &amp; distributing shards…</div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <progress id="upload-progress" value="0" max="100" style="display:none"></progress>
+  </div>
+
+  <div id="upload-result"></div>
+
+  <!-- Shard distribution visualiser -->
+  <div id="shard-flow" class="shard-flow" style="display:none"></div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- FILE LIST                                                -->
+<!-- ════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-files">
+  <div class="section-header">
+    <h2 class="section-title">
+      <span class="sec-icon">📋</span> Uploaded Files
+    </h2>
+  </div>
+  <div id="file-list">
+    <div class="empty-msg">
+      <span class="empty-icon">🗄️</span>
+      <span>No files uploaded yet — drop a file above to get started</span>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- FAILURE SIMULATION                                       -->
+<!-- ════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-demo">
+  <div class="section-header">
+    <h2 class="section-title">
+      <span class="sec-icon">🔥</span> Failure Simulation
+    </h2>
+    <span class="section-hint">Kill a node then download — RS reconstructs it!</span>
+  </div>
+
+  <div class="demo-explanation">
+    <div class="demo-exp-item">
+      <span class="demo-exp-icon">1️⃣</span>
+      <span>Upload any file</span>
+    </div>
+    <div class="demo-exp-arrow">→</div>
+    <div class="demo-exp-item">
+      <span class="demo-exp-icon">2️⃣</span>
+      <span>Kill any one node</span>
+    </div>
+    <div class="demo-exp-arrow">→</div>
+    <div class="demo-exp-item">
+      <span class="demo-exp-icon">3️⃣</span>
+      <span>Download the file</span>
+    </div>
+    <div class="demo-exp-arrow">→</div>
+    <div class="demo-exp-item demo-exp-success">
+      <span class="demo-exp-icon">✅</span>
+      <span>Reed-Solomon reconstructs it perfectly!</span>
+    </div>
+  </div>
+
+  <div class="demo-controls">
+    <button class="btn btn-kill" id="kill-0" onclick="Demo.killNode(0)">
+      <span class="btn-icon">💀</span> Kill Node 0
+    </button>
+    <button class="btn btn-kill" id="kill-1" onclick="Demo.killNode(1)">
+      <span class="btn-icon">💀</span> Kill Node 1
+    </button>
+    <button class="btn btn-kill" id="kill-2" onclick="Demo.killNode(2)">
+      <span class="btn-icon">💀</span> Kill Node 2
+    </button>
+    <button class="btn btn-kill" id="kill-3" onclick="Demo.killNode(3)">
+      <span class="btn-icon">💀</span> Kill Node 3
+    </button>
+    <button class="btn btn-recover" onclick="Demo.recoverAll()">
+      <span class="btn-icon">🔄</span> Recover All
+    </button>
+  </div>
+  <div class="demo-footnote">
+    ℹ️ The cluster tolerates <strong>1 node failure</strong> (25% data loss)
+    and fully reconstructs any file using the parity shard.
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- ACTIVITY LOG                                             -->
+<!-- ════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-log">
+  <div class="section-header">
+    <h2 class="section-title">
+      <span class="sec-icon">📜</span> Activity Log
+    </h2>
+    <button class="btn-clear" onclick="Logger.clear()">Clear</button>
+  </div>
+  <div id="log-panel" class="log-panel"></div>
+</section>
+
+</main>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SCRIPTS                                                  -->
+<!-- ════════════════════════════════════════════════════════ -->
+<script src="js/mock_backend.js"></script>
+<script src="js/api.js"></script>
+<script src="js/logger.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/upload.js"></script>
+
+<script>
+// ── Shared Helpers ────────────────────────────────────────────
+function formatBytes(bytes) {
+  if (!bytes && bytes !== 0) return '—';
+  if (bytes === 0)           return '0 B';
+  if (bytes < 1024)          return `${bytes} B`;
+  if (bytes < 1048576)       return `${(bytes/1024).toFixed(1)} KB`;
+  if (bytes < 1073741824)    return `${(bytes/1048576).toFixed(1)} MB`;
+  return `${(bytes/1073741824).toFixed(2)} GB`;
+}
+
+function setEl(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+// ── Custom animated progress bar ──────────────────────────────
+// Override Uploader.showProgress to use our custom bar
+const _origShow = Uploader && Uploader.showProgress;
+
+function hookProgressBar() {
+  if (!Uploader) return;
+  Uploader.showProgress = function(show, value) {
+    const wrap = document.getElementById('progress-wrap');
+    const fill = document.getElementById('progress-fill');
+    wrap.style.display = show ? 'block' : 'none';
+    if (fill) fill.style.width = (value || 0) + '%';
+  };
+}
+
+// ── File List ─────────────────────────────────────────────────
+const FileList = {
+  render(files) {
+    setEl('file-count', files.length);
+    const list = document.getElementById('file-list');
+    if (!list) return;
+
+    if (!files.length) {
+      list.innerHTML = `<div class="empty-msg">
+        <span class="empty-icon">🗄️</span>
+        <span>No files uploaded yet</span>
+      </div>`;
+      return;
+    }
+
+    list.innerHTML = files.map((f, idx) => `
+      <div class="file-row" id="file-row-${idx}">
+        <div class="file-icon-wrap">
+          <span class="file-icon">${getFileIcon(f.file_name)}</span>
+        </div>
+        <div class="file-info">
+          <div class="file-name">${f.file_name}</div>
+          <div class="file-meta">
+            ${formatBytes(f.size)} &nbsp;·&nbsp;
+            ${f.uploaded.toLocaleTimeString()} &nbsp;·&nbsp;
+            <span class="mono">${f.file_id.substring(0,12)}…</span>
+          </div>
+          <div class="file-tags">
+            <span class="tag tag-data">${f.data_shards} data shards</span>
+            <span class="tag tag-parity">${f.parity_shards} parity shard</span>
+          </div>
+        </div>
+        <div class="file-actions">
+          <button class="btn btn-download"
+                  onclick="Downloader.download('${f.file_id}', decodeURIComponent('${encodeURIComponent(f.file_name)}'))">
+            ⬇️ Download
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+};
+
+function getFileIcon(name) {
+  if (!name) return '📄';
+  const ext = name.split('.').pop().toLowerCase();
+  const map = {
+    pdf:'📕', jpg:'🖼️', jpeg:'🖼️', png:'🖼️', gif:'🖼️', svg:'🖼️',
+    mp4:'🎬', mov:'🎬', avi:'🎬', mp3:'🎵', wav:'🎵',
+    zip:'📦', tar:'📦', gz:'📦',
+    js:'⚙️', ts:'⚙️', go:'⚙️', cpp:'⚙️', py:'⚙️',
+    json:'📊', csv:'📊', xml:'📊',
+    md:'📝', txt:'📝', doc:'📝', docx:'📝',
+  };
+  return map[ext] || '📄';
+}
+
+// ── Downloader ────────────────────────────────────────────────
+const Downloader = {
+  async download(fileID, fileName) {
+    Logger.info(`📥 Downloading…`);
+    try {
+      const res = await API.downloadFile(fileID);
+      const blob = res.blob;
+      const retrievalTime = res.retrievalTime || '?';
+
+      // 1. Resolve filename: passed parameter > response header filename > fallback to fileID
+      let finalName = (fileName && fileName !== 'undefined') ? fileName : (res.fileName || fileID);
+
+      // 2. If filename lacks an extension, detect from blob MIME type
+      if (!finalName.includes('.')) {
+        const mime = blob.type || '';
+        const extMap = {
+          'image/png': '.png',
+          'image/jpeg': '.jpg',
+          'image/jpg': '.jpg',
+          'image/webp': '.webp',
+          'image/gif': '.gif',
+          'image/svg+xml': '.svg',
+          'application/pdf': '.pdf',
+          'text/plain': '.txt',
+          'text/html': '.html',
+          'text/csv': '.csv',
+          'application/json': '.json',
+          'application/zip': '.zip',
+          'video/mp4': '.mp4',
+        };
+        const ext = extMap[mime] || '';
+        if (ext) finalName += ext;
+      }
+
+      // 3. Create download trigger
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = finalName;
+      a.setAttribute('download', finalName);
+      document.body.appendChild(a);
+      a.click();
+
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 1000);
+
+      Logger.success(`✅ "${finalName}" downloaded in ${retrievalTime}ms`);
+    } catch (err) {
+      Logger.error(`❌ Download failed: ${err.message}`);
+    }
+  }
+};
+
+// ── Demo Controls ─────────────────────────────────────────────
+const Demo = {
+  async killNode(nodeIndex) {
+    Logger.warn(`💀 Killing Node ${nodeIndex}…`);
+    if (!(await API.isLive())) {
+      MockBackend.killNode(nodeIndex);
+      Logger.warn(`⚠️  Node ${nodeIndex} is now OFFLINE. Try downloading a file — RS will reconstruct it!`);
+    } else {
+      try {
+        const res = await fetch(`http://localhost:8080/api/admin/kill/${nodeIndex}`, { method: 'POST' });
+        if (res.ok) {
+          Logger.warn(`⚠️  Node ${nodeIndex} is now OFFLINE! Try downloading a file — RS will reconstruct it!`);
+        }
+      } catch (e) {
+        Logger.error(`Could not kill node: ${e.message}`);
+      }
+    }
+    const btn = document.getElementById(`kill-${nodeIndex}`);
+    if (btn) { btn.classList.add('btn-killed'); btn.innerHTML = `<span class="btn-icon">💀</span> Node ${nodeIndex} Dead`; }
+    await Dashboard.refresh();
+  },
+
+  async recoverAll() {
+    Logger.info('🔄 Recovering all nodes…');
+    if (!(await API.isLive())) {
+      MockBackend.recoverAll();
+      Logger.success('✅ All nodes back ONLINE!');
+    } else {
+      try {
+        const res = await fetch('http://localhost:8080/api/admin/recover', { method: 'POST' });
+        if (res.ok) {
+          Logger.success('✅ All nodes back ONLINE!');
+        }
+      } catch (e) {
+        Logger.error(`Could not recover nodes: ${e.message}`);
+      }
+    }
+    [0,1,2,3].forEach(i => {
+      const btn = document.getElementById(`kill-${i}`);
+      if (btn) { btn.classList.remove('btn-killed'); btn.innerHTML = `<span class="btn-icon">💀</span> Kill Node ${i}`; }
+    });
+    await Dashboard.refresh();
+  }
+};
+
+// ── App Init ─────────────────────────────────────────────────
+(async function init() {
+  hookProgressBar();
+  Logger.info('🚀 DFS Dashboard loaded — probing backend at localhost:8080…');
+
+  const live = await API.isLive();
+  if (!live) {
+    // Show demo mode banner
+    document.getElementById('demo-banner').style.display = 'block';
+    Logger.warn('⚡ Demo Mode active — using in-browser simulation');
+    Logger.info('📦 Upload any file to see Reed-Solomon sharding in action!');
+    Logger.info('💀 Kill a node then download to see reconstruction work!');
+
+    // Load any previously uploaded files from localStorage
+    const saved = MockBackend.getFiles ? MockBackend.getFiles() : { files: [] };
+    if (saved.files.length > 0) {
+      // Reconstruct the uploadedFiles list for the FileList renderer
+      Uploader.uploadedFiles = saved.files.map(f => ({
+        file_id:       f.file_id,
+        file_name:     f.file_name,
+        size:          f.original_size,
+        shard_size:    0,
+        data_shards:   f.data_shards,
+        parity_shards: f.parity_shards,
+        uploaded:      new Date(f.created_at),
+      }));
+      FileList.render(Uploader.uploadedFiles);
+      Logger.info(`📂 Restored ${saved.files.length} file(s) from previous session`);
+    }
+  } else {
+    Logger.success('✅ Real backend connected at localhost:8080');
+    try {
+      const liveData = await API.getFiles();
+      if (liveData && liveData.files && liveData.files.length > 0) {
+        Uploader.uploadedFiles = liveData.files.map(f => ({
+          file_id:       f.file_id,
+          file_name:     f.file_name,
+          size:          f.original_size,
+          shard_size:    0,
+          data_shards:   f.data_shards,
+          parity_shards: f.parity_shards,
+          uploaded:      new Date(f.created_at),
+        }));
+        FileList.render(Uploader.uploadedFiles);
+        Logger.info(`📂 Loaded ${liveData.files.length} file(s) from DFS cluster`);
+      }
+    } catch (e) {
+      console.warn('Could not load backend files', e);
+    }
+  }
+
+  Dashboard.startPolling();
+  Uploader.init();
+})();
+</script>
+
+</body>
+</html>

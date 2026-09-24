@@ -1,0 +1,26 @@
+# Go build artifacts
+coordinator/coordinator
+coordinator/dfs
+coordinator/*.test
+
+# C++ build artifacts
+storage-node/build/
+storage-node/proto/*.pb.cc
+storage-node/proto/*.pb.h
+
+# Docker volumes
+node*-data/
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local

@@ -1,0 +1,106 @@
+version: '3.8'
+
+networks:
+  dfs-net:
+    driver: bridge
+
+volumes:
+  node0-data:
+  node1-data:
+  node2-data:
+  node3-data:
+
+services:
+
+  # ── Storage Nodes (C++) ──────────────────────────────────
+  node-0:
+    build:
+      context: ./storage-node
+      dockerfile: Dockerfile
+    container_name: storage-node-0
+    command: ["node-0", "50051", "/data"]
+    volumes:
+      - node0-data:/data
+      - ./proto:/proto:ro        # shared proto file for code gen
+    networks:
+      - dfs-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "true"]   # gRPC health check needs grpc_health_probe
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  node-1:
+    build:
+      context: ./storage-node
+      dockerfile: Dockerfile
+    container_name: storage-node-1
+    command: ["node-1", "50051", "/data"]
+    volumes:
+      - node1-data:/data
+      - ./proto:/proto:ro
+    networks:
+      - dfs-net
+    restart: unless-stopped
+
+  node-2:
+    build:
+      context: ./storage-node
+      dockerfile: Dockerfile
+    container_name: storage-node-2
+    command: ["node-2", "50051", "/data"]
+    volumes:
+      - node2-data:/data
+      - ./proto:/proto:ro
+    networks:
+      - dfs-net
+    restart: unless-stopped
+
+  node-3:
+    build:
+      context: ./storage-node
+      dockerfile: Dockerfile
+    container_name: storage-node-3
+    command: ["node-3", "50051", "/data"]
+    volumes:
+      - node3-data:/data
+      - ./proto:/proto:ro
+    networks:
+      - dfs-net
+    restart: unless-stopped
+
+  # ── Go Coordinator ──────────────────────────────────────
+  coordinator:
+    build:
+      context: ./coordinator
+      dockerfile: Dockerfile
+    container_name: dfs-coordinator
+    ports:
+      - "8080:8080"
+    environment:
+      PORT:        "8080"
+      NODE_0_ADDR: "node-0:50051"
+      NODE_1_ADDR: "node-1:50051"
+      NODE_2_ADDR: "node-2:50051"
+      NODE_3_ADDR: "node-3:50051"
+    depends_on:
+      - node-0
+      - node-1
+      - node-2
+      - node-3
+    networks:
+      - dfs-net
+    restart: unless-stopped
+
+  # ── Frontend (nginx static) ─────────────────────────────
+  frontend:
+    image: nginx:alpine
+    container_name: dfs-frontend
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    networks:
+      - dfs-net
+    restart: unless-stopped
