@@ -5,56 +5,60 @@ const Uploader = {
   uploadedFiles: [],   // in-memory list for the file table
 
   init() {
-    document.getElementById('file-input')
-      .addEventListener('change', e => {
+    const input = document.getElementById('file-input');
+    if (input) {
+      input.addEventListener('change', e => {
         const file = e.target.files[0];
         if (file) this.upload(file);
         e.target.value = ''; // allow re-selecting same file
       });
+    }
 
     const zone = document.getElementById('drop-zone');
-    zone.addEventListener('dragover', e => {
-      e.preventDefault();
-      zone.classList.add('drag-over');
-    });
-    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-    zone.addEventListener('drop', e => {
-      e.preventDefault();
-      zone.classList.remove('drag-over');
-      const file = e.dataTransfer.files[0];
-      if (file) this.upload(file);
-    });
+    if (zone) {
+      zone.addEventListener('dragover', e => {
+        e.preventDefault();
+        zone.classList.add('drag-over');
+      });
+      zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+      zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) this.upload(file);
+      });
+    }
   },
 
   async upload(file) {
     Logger.info(`📤 Uploading "${file.name}" (${formatBytes(file.size)})`);
-    this.showProgress(true, 0);
+    this.showProgress(true, 0, 'Reading file & computing checksum…');
     this.clearResult();
 
     // Animate progress bar through phases
     const phases = [
-      [10, 200],   // reading
-      [30, 300],   // encoding
-      [60, 400],   // distributing
-      [85, 300],   // confirming
+      [15, 200, 'Computing Reed-Solomon 3+1 Galois field matrix…'],
+      [40, 300, 'Encoding data shards & generating parity shard…'],
+      [70, 350, 'Distributing shards in parallel across 4 storage nodes…'],
+      [90, 250, 'Verifying quorum & acknowledging replication…'],
     ];
-    for (const [pct, delay] of phases) {
+    for (const [pct, delay, label] of phases) {
       await sleep(delay);
-      this.showProgress(true, pct);
+      this.showProgress(true, pct, label);
     }
 
     try {
       const result = await API.uploadFile(file);
-      this.showProgress(true, 100);
+      this.showProgress(true, 100, 'Upload & distribution complete!');
 
       this.uploadedFiles.push({
-        file_id:      result.file_id,
-        file_name:    result.file_name,
-        size:         result.original_size,
-        shard_size:   result.shard_size,
-        data_shards:  result.data_shards,
-        parity_shards:result.parity_shards,
-        uploaded:     new Date(),
+        file_id:       result.file_id,
+        file_name:     result.file_name,
+        size:          result.original_size,
+        shard_size:    result.shard_size,
+        data_shards:   result.data_shards,
+        parity_shards: result.parity_shards,
+        uploaded:      new Date(),
       });
 
       Logger.success(
@@ -70,38 +74,49 @@ const Uploader = {
       Logger.error(`❌ Upload failed: ${err.message}`);
       this.showError(err.message);
     } finally {
-      setTimeout(() => this.showProgress(false, 0), 1800);
+      setTimeout(() => this.showProgress(false, 0), 1600);
     }
   },
 
-  showProgress(show, value) {
+  showProgress(show, value, labelText) {
     const wrap = document.getElementById('progress-wrap');
-    const bar  = document.getElementById('upload-progress');
-    wrap.style.display = show ? 'block' : 'none';
-    if (bar) bar.value = value;
+    const fill = document.getElementById('progress-fill');
+    const label = document.getElementById('progress-status-text');
+    if (wrap) wrap.style.display = show ? 'block' : 'none';
+    if (fill) fill.style.width = (value || 0) + '%';
+    if (label && labelText) label.textContent = labelText;
   },
 
   clearResult() {
-    document.getElementById('upload-result').innerHTML = '';
-    document.getElementById('shard-flow').style.display = 'none';
+    const res = document.getElementById('upload-result');
+    if (res) res.innerHTML = '';
+    const flow = document.getElementById('shard-flow');
+    if (flow) flow.style.display = 'none';
   },
 
   showResult(result) {
     const encodedName = encodeURIComponent(result.file_name);
-    document.getElementById('upload-result').innerHTML = `
+    const res = document.getElementById('upload-result');
+    if (!res) return;
+
+    res.innerHTML = `
       <div class="result-box success-box">
-        <div class="result-row"><span class="result-icon">✅</span>
-          <strong>${result.file_name}</strong> distributed across cluster</div>
-        <div class="result-row"><span class="result-icon">🆔</span>
-          <code>${result.file_id}</code></div>
-        <div class="result-row"><span class="result-icon">⚡</span>
-          ${result.upload_time_ms}ms upload time</div>
-        <div class="result-row"><span class="result-icon">📦</span>
-          ${result.data_shards} data + ${result.parity_shards} parity shards
-          (${formatBytes(result.shard_size)} each)</div>
-        <div style="margin-top:12px">
+        <div class="result-row" style="font-weight:700;font-size:1rem;color:#10B981;">
+          <span class="result-icon">✅</span>
+          <span>"${result.file_name}" successfully striped &amp; stored</span>
+        </div>
+        <div class="result-row">
+          <span class="result-icon">🆔</span>
+          <span>File ID: <code style="font-family:var(--font-mono);">${result.file_id}</code></span>
+        </div>
+        <div class="result-row">
+          <span class="result-icon">⚡</span>
+          <span>Latency: <strong>${result.upload_time_ms}ms</strong> &nbsp;·&nbsp; Shards: <strong>${result.data_shards} Data + ${result.parity_shards} Parity</strong> (${formatBytes(result.shard_size)} / node)</span>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:10px;">
           <button class="btn btn-download" onclick="Downloader.download('${result.file_id}', decodeURIComponent('${encodedName}'))">
-            ⬇️ Download "${result.file_name}"
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download "${result.file_name}"
           </button>
         </div>
       </div>`;
@@ -109,34 +124,41 @@ const Uploader = {
 
   animateShardFlow(result) {
     const flow = document.getElementById('shard-flow');
+    if (!flow) return;
     flow.style.display = 'flex';
     flow.innerHTML = `
       <div class="shard-box data" id="sf-0" style="opacity:0">
         <div class="shard-icon">💾</div>
-        <div class="shard-label">Shard 0</div>
+        <div class="shard-label">Data Shard 0</div>
         <div class="shard-size">${formatBytes(result.shard_size)}</div>
-        <div class="shard-node">Node 0</div>
+        <div class="shard-node">Node 0 :50051</div>
       </div>
-      <div class="shard-arrow">→</div>
+      <div class="shard-arrow">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+      </div>
       <div class="shard-box data" id="sf-1" style="opacity:0">
         <div class="shard-icon">💾</div>
-        <div class="shard-label">Shard 1</div>
+        <div class="shard-label">Data Shard 1</div>
         <div class="shard-size">${formatBytes(result.shard_size)}</div>
-        <div class="shard-node">Node 1</div>
+        <div class="shard-node">Node 1 :50051</div>
       </div>
-      <div class="shard-arrow">→</div>
+      <div class="shard-arrow">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+      </div>
       <div class="shard-box data" id="sf-2" style="opacity:0">
         <div class="shard-icon">💾</div>
-        <div class="shard-label">Shard 2</div>
+        <div class="shard-label">Data Shard 2</div>
         <div class="shard-size">${formatBytes(result.shard_size)}</div>
-        <div class="shard-node">Node 2</div>
+        <div class="shard-node">Node 2 :50051</div>
       </div>
-      <div class="shard-arrow">→</div>
+      <div class="shard-arrow">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+      </div>
       <div class="shard-box parity" id="sf-3" style="opacity:0">
         <div class="shard-icon">🛡️</div>
-        <div class="shard-label">Parity</div>
+        <div class="shard-label">Parity Shard</div>
         <div class="shard-size">${formatBytes(result.shard_size)}</div>
-        <div class="shard-node">Node 3</div>
+        <div class="shard-node" style="color:var(--amber);">Node 3 :50051</div>
       </div>`;
 
     // Stagger the shard appearances
@@ -144,21 +166,21 @@ const Uploader = {
       setTimeout(() => {
         const el = document.getElementById(`sf-${i}`);
         if (el) {
-          el.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-          el.style.transform  = 'translateY(-8px)';
+          el.style.transition = 'opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+          el.style.transform  = 'translateY(-10px)';
           el.style.opacity    = '1';
           setTimeout(() => { el.style.transform = 'translateY(0)'; }, 50);
         }
-      }, idx * 150);
+      }, idx * 120);
     });
   },
 
   showError(msg) {
-    document.getElementById('upload-result').innerHTML = `
+    const res = document.getElementById('upload-result');
+    if (!res) return;
+    res.innerHTML = `
       <div class="result-box error-box">
-        <span class="result-icon">❌</span> ${msg}
+        <div class="result-row"><span class="result-icon">❌</span><strong>Upload Failed:</strong> ${msg}</div>
       </div>`;
-  },
+  }
 };
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }

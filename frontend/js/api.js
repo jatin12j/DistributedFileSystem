@@ -2,36 +2,69 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Centralized API layer.
 //
-// When the real Go coordinator at localhost:8080 is reachable → uses it.
-// When it's unreachable (no Docker / no Go running) → falls back to
-// MockBackend (mock_backend.js), which simulates the entire DFS cluster
-// in the browser using localStorage and Web Crypto.
+// When the real Go coordinator is reachable (local Docker or remote cloud) → uses it.
+// When it's unreachable (e.g. static Vercel deployment) → automatically
+// falls back to MockBackend (mock_backend.js), which simulates the entire
+// 4-node Reed-Solomon cluster in the browser using Web Crypto and localStorage.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BASE_URL = 'http://localhost:8080/api';
+const DEFAULT_LOCAL_API = 'http://localhost:8080/api';
+let BASE_URL = window.DFS_API_URL || localStorage.getItem('dfs_backend_url') || DEFAULT_LOCAL_API;
 
 // Resolved once on first call, then cached for the session.
 let _useMock = null;
 
 async function isBackendReachable() {
   if (_useMock !== null) return !_useMock;
+
+  // On HTTPS hosts (like Vercel), browsers block plain HTTP requests to localhost (Mixed Content)
+  // unless a secure HTTPS backend URL is configured.
+  const isHttpsHost = window.location.protocol === 'https:';
+  const isPlainHttp = BASE_URL.startsWith('http://');
+
+  if (isHttpsHost && isPlainHttp) {
+    console.info('[API] Hosted on HTTPS without a secure remote backend — running in full In-Browser Simulation Mode.');
+    _useMock = true;
+    return false;
+  }
+
   try {
     const ctrl = new AbortController();
-    const tid   = setTimeout(() => ctrl.abort(), 2000); // 2s probe
-    const resp  = await fetch(`${BASE_URL}/health`, { signal: ctrl.signal });
+    const tid  = setTimeout(() => ctrl.abort(), 1800); // 1.8s probe
+    const resp = await fetch(`${BASE_URL}/health`, { signal: ctrl.signal });
     clearTimeout(tid);
     _useMock = !resp.ok;
   } catch {
     _useMock = true; // unreachable → use mock
   }
+
   if (_useMock) {
-    console.warn('[API] Backend unreachable — running in Demo Mode (local simulation)');
+    console.warn('[API] Backend unreachable — running in Demo Mode (in-browser Reed-Solomon simulation)');
   }
   return !_useMock;
 }
 
-// Force re-probe (useful if user starts the backend while page is open)
-function resetBackendProbe() { _useMock = null; }
+// Force re-probe (useful if user starts the backend or changes URL)
+function resetBackendProbe() {
+  _useMock = null;
+}
+
+function promptCustomBackend() {
+  const current = localStorage.getItem('dfs_backend_url') || 'http://localhost:8080/api';
+  const url = prompt('Enter your DistFS Coordinator API URL (e.g., https://my-cluster.onrender.com/api):', current);
+  if (url !== null) {
+    const trimmed = url.trim();
+    if (trimmed) {
+      localStorage.setItem('dfs_backend_url', trimmed);
+      BASE_URL = trimmed;
+    } else {
+      localStorage.removeItem('dfs_backend_url');
+      BASE_URL = DEFAULT_LOCAL_API;
+    }
+    resetBackendProbe();
+    location.reload();
+  }
+}
 
 const API = {
 
@@ -67,7 +100,7 @@ const API = {
     if (!(await isBackendReachable())) {
       const result = await MockBackend.downloadFile(fileID);
       if (result.reconstructed) {
-        Logger.warn(`🔄 Reed-Solomon reconstruction used — one shard was missing!`);
+        Logger.warn(`🔄 Reed-Solomon RS(3+1) reconstruction used — missing shard recovered!`);
       }
       return result;
     }
