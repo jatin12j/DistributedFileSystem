@@ -100,7 +100,7 @@ const API = {
     if (!(await isBackendReachable())) {
       const result = await MockBackend.downloadFile(fileID);
       if (result.reconstructed) {
-        Logger.warn(`[RECONSTRUCT_INVOKED] Reed-Solomon RS(3,1) parity invoked — missing shard recovered bit-exact!`);
+        Logger.warn(`🔄 Reed-Solomon RS(3+1) reconstruction used — missing shard recovered!`);
       }
       return result;
     }
@@ -154,6 +154,25 @@ const API = {
     }
     const response = await fetch(`${BASE_URL}/files/${fileID}`, { method: 'DELETE' });
     if (!response.ok) throw new Error('Delete failed');
+    return response.json();
+  },
+
+  // ── Admin Simulation: Kill & Recover Nodes ──────────────────────────────
+  async killNode(nodeIndex) {
+    if (!(await isBackendReachable())) {
+      return MockBackend.killNode(nodeIndex);
+    }
+    const response = await fetch(`${BASE_URL}/admin/kill/${nodeIndex}`, { method: 'POST' });
+    if (!response.ok) throw new Error('Failed to kill node');
+    return response.json();
+  },
+
+  async recoverAll() {
+    if (!(await isBackendReachable())) {
+      return MockBackend.recoverAll();
+    }
+    const response = await fetch(`${BASE_URL}/admin/recover`, { method: 'POST' });
+    if (!response.ok) throw new Error('Failed to recover nodes');
     return response.json();
   },
 };

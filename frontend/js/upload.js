@@ -1,5 +1,5 @@
 // frontend/js/upload.js
-// Industrial Shard Distribution & Encoding Visualizer
+// File upload — drag-and-drop + Reed-Solomon RS(3+1) visual encoding pipeline
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -33,66 +33,151 @@ const Uploader = {
   },
 
   async upload(file) {
-    Logger.info(`[INGEST] Initiating upload for "${file.name}" (${formatBytes(file.size)})`);
-    this.showProgress(true, 5, '[STAGE 1/4] Reading byte stream & hashing SHA-256…');
+    Logger.info(`↑ Uploading "${file.name}" (${formatBytes(file.size)})`);
+    this.updateFlowchartInitial(file);
+    this.showProgress(true, 10, 'Reading binary payload & computing SHA-256…');
     this.clearResult();
 
     try {
-      const phases = [
-        [20, 180, '[STAGE 2/4] Generating Cauchy Galois Field GF(2^8) generator matrix…'],
-        [45, 220, '[STAGE 3/4] Slicing 3 data shards & computing XOR parity shard…'],
-        [75, 260, '[STAGE 4/4] Distributing shards in parallel across 4 gRPC nodes…'],
-        [90, 160, '[COMMIT] Verifying quorum confirmation across cluster…'],
-      ];
-      for (const [pct, delay, label] of phases) {
-        await sleep(delay);
-        this.showProgress(true, pct, label);
-      }
+      // Step through RS pipeline phases with visual flowchart animation
+      await sleep(180);
+      this.showProgress(true, 30, 'Multiplying Galois Field GF(2⁸) generator matrix…');
+      this.updateFlowchartEncoding('Multiplying Galois Field GF(2⁸) matrix…', 'GF(2⁸) Active');
+
+      await sleep(220);
+      this.showProgress(true, 55, 'Synthesizing 3 data shards + 1 parity shard…');
+      this.updateFlowchartShardsStreaming();
+
+      await sleep(240);
+      this.showProgress(true, 80, 'Streaming chunks across gRPC endpoints :50051-:50054…');
 
       const result = await API.uploadFile(file);
-      this.showProgress(true, 100, '[COMMITTED] Quorum verified. All shards stored.');
+      this.showProgress(true, 100, 'Distribution quorum confirmed (3 Data + 1 Parity)');
+      this.updateFlowchartComplete(result);
 
-      this.uploadedFiles.push({
+      const fileRecord = {
         file_id:       result.file_id,
         file_name:     result.file_name,
         size:          result.original_size,
         shard_size:    result.shard_size,
-        data_shards:   result.data_shards,
-        parity_shards: result.parity_shards,
+        data_shards:   result.data_shards || 3,
+        parity_shards: result.parity_shards || 1,
         uploaded:      new Date(),
-      });
+      };
+      this.uploadedFiles.unshift(fileRecord);
 
       Logger.success(
-        `[STRIPE_OK] "${result.file_name}" committed in ${result.upload_time_ms}ms ` +
-        `| ID: ${result.file_id.substring(0,8)}…`
+        `✓ File distributed: "${result.file_name}" in ${result.upload_time_ms}ms ` +
+        `| ID: ${result.file_id.substring(0, 8)}…`
       );
 
       this.showResult(result);
-      this.animateShardFlow(result);
       FileList.render(this.uploadedFiles);
+      if (window.Dashboard) {
+        Dashboard.refresh();
+      }
 
     } catch (err) {
-      Logger.error(`[UPLOAD_ERR] ${err.message}`);
+      Logger.error(`✕ Upload failed: ${err.message}`);
       this.showError(err.message);
+      this.updateFlowchartError(err.message);
     } finally {
       setTimeout(() => this.showProgress(false, 0), 1600);
     }
   },
 
+  updateFlowchartInitial(file) {
+    const fn = document.getElementById('uf-filename');
+    const fs = document.getElementById('uf-filesize');
+    const step1 = document.getElementById('uf-step-file');
+    const p1 = document.getElementById('uf-pulse-1');
+    if (fn) fn.textContent = file.name;
+    if (fs) fs.textContent = formatBytes(file.size);
+    if (step1) step1.classList.add('active');
+    if (p1) p1.classList.add('animating');
+
+    // Reset shard cards
+    [0, 1, 2, 3].forEach(i => {
+      const card = document.getElementById(`uf-shard-${i}`);
+      const sz = document.getElementById(`uf-sz-${i}`);
+      if (card) card.classList.remove('active');
+      if (sz) sz.textContent = 'Waiting…';
+    });
+  },
+
+  updateFlowchartEncoding(status, tag) {
+    const enc = document.getElementById('uf-step-encode');
+    const st = document.getElementById('uf-encode-status');
+    const tg = document.getElementById('uf-encode-tag');
+    const p2 = document.getElementById('uf-pulse-2');
+    if (enc) enc.classList.add('active');
+    if (st) st.textContent = status;
+    if (tg) {
+      tg.className = 'upload-flow-tag ready';
+      tg.textContent = tag;
+    }
+    if (p2) p2.classList.add('animating');
+  },
+
+  updateFlowchartShardsStreaming() {
+    [0, 1, 2, 3].forEach(i => {
+      const card = document.getElementById(`uf-shard-${i}`);
+      const sz = document.getElementById(`uf-sz-${i}`);
+      if (card) card.classList.add('active');
+      if (sz) sz.textContent = 'gRPC stream…';
+    });
+  },
+
+  updateFlowchartComplete(result) {
+    const p1 = document.getElementById('uf-pulse-1');
+    const p2 = document.getElementById('uf-pulse-2');
+    if (p1) p1.classList.remove('animating');
+    if (p2) p2.classList.remove('animating');
+
+    const st = document.getElementById('uf-encode-status');
+    const tg = document.getElementById('uf-encode-tag');
+    if (st) st.textContent = `Completed in ${result.upload_time_ms}ms • RS(3+1) verified`;
+    if (tg) {
+      tg.className = 'upload-flow-tag complete';
+      tg.textContent = 'Distributed ✓';
+    }
+
+    [0, 1, 2, 3].forEach(i => {
+      const card = document.getElementById(`uf-shard-${i}`);
+      const sz = document.getElementById(`uf-sz-${i}`);
+      if (card) card.classList.add('active');
+      if (sz) sz.textContent = `${formatBytes(result.shard_size)}`;
+    });
+  },
+
+  updateFlowchartError(msg) {
+    const p1 = document.getElementById('uf-pulse-1');
+    const p2 = document.getElementById('uf-pulse-2');
+    if (p1) p1.classList.remove('animating');
+    if (p2) p2.classList.remove('animating');
+
+    const tg = document.getElementById('uf-encode-tag');
+    if (tg) {
+      tg.className = 'upload-flow-tag error';
+      tg.textContent = 'Failed';
+    }
+  },
+
   showProgress(show, value, labelText) {
-    const wrap = document.getElementById('progress-wrap');
-    const fill = document.getElementById('progress-fill');
+    const wrap  = document.getElementById('progress-wrap');
+    const fill  = document.getElementById('progress-fill');
     const label = document.getElementById('progress-status-text');
+    const pct   = document.getElementById('progress-pct');
+
     if (wrap) wrap.style.display = show ? 'block' : 'none';
     if (fill) fill.style.width = (value || 0) + '%';
     if (label && labelText) label.textContent = labelText;
+    if (pct) pct.textContent = (value || 0) + '%';
   },
 
   clearResult() {
     const res = document.getElementById('upload-result');
     if (res) res.innerHTML = '';
-    const flow = document.getElementById('shard-flow');
-    if (flow) flow.style.display = 'none';
   },
 
   showResult(result) {
@@ -101,81 +186,36 @@ const Uploader = {
     if (!res) return;
 
     res.innerHTML = `
-      <div class="result-box success-box">
-        <div class="result-row" style="font-weight:700;color:var(--hw-green);">
-          <span class="result-tag">[STATUS: 200_OK]</span>
-          <span>Object "${result.file_name}" striped across 4 nodes</span>
-        </div>
-        <div class="result-row">
-          <span class="result-tag">OBJECT_ID</span>
-          <code>${result.file_id}</code>
-        </div>
-        <div class="result-row">
-          <span class="result-tag">TELEMETRY</span>
-          <span>Latency: ${result.upload_time_ms}ms &nbsp;&bull;&nbsp; Layout: ${result.data_shards} Data + ${result.parity_shards} Parity (${formatBytes(result.shard_size)}/node)</span>
-        </div>
-        <div style="margin-top:12px;">
-          <button class="btn btn-download" onclick="Downloader.download('${result.file_id}', decodeURIComponent('${encodedName}'))">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            RETRIEVE "${result.file_name}"
+      <div class="result-card success">
+        <div class="result-header-row">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="color:var(--green);font-weight:700;">✓</span>
+            <span class="result-filename">${result.file_name}</span>
+            <span style="color:var(--text-muted);font-family:var(--font-mono);font-size:11px;">(${formatBytes(result.original_size)})</span>
+          </div>
+          <button class="btn-action" onclick="Downloader.download('${result.file_id}', decodeURIComponent('${encodedName}'))">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download
           </button>
         </div>
+        <div class="result-details">
+          <span>Latency: <strong style="color:var(--text-primary);font-family:var(--font-mono)">${result.upload_time_ms} ms</strong></span>
+          <span>Layout: <strong style="color:var(--text-primary)">${result.data_shards || 3} Data + ${result.parity_shards || 1} Parity</strong></span>
+          <span>Shard Size: <strong style="color:var(--text-primary);font-family:var(--font-mono)">${formatBytes(result.shard_size)}</strong> / node</span>
+          <span>ID: <code>${result.file_id ? result.file_id.substring(0, 18) + '…' : '—'}</code></span>
+        </div>
       </div>`;
-  },
-
-  animateShardFlow(result) {
-    const flow = document.getElementById('shard-flow');
-    if (!flow) return;
-    flow.style.display = 'grid';
-    flow.innerHTML = `
-      <div class="shard-box data" id="sf-0" style="opacity:0">
-        <div class="shard-top">
-          <span class="shard-label">[SHARD_0] DATA</span>
-          <span class="shard-size">${formatBytes(result.shard_size)}</span>
-        </div>
-        <div class="shard-node">NODE_0 :50051</div>
-      </div>
-      <div class="shard-box data" id="sf-1" style="opacity:0">
-        <div class="shard-top">
-          <span class="shard-label">[SHARD_1] DATA</span>
-          <span class="shard-size">${formatBytes(result.shard_size)}</span>
-        </div>
-        <div class="shard-node">NODE_1 :50052</div>
-      </div>
-      <div class="shard-box data" id="sf-2" style="opacity:0">
-        <div class="shard-top">
-          <span class="shard-label">[SHARD_2] DATA</span>
-          <span class="shard-size">${formatBytes(result.shard_size)}</span>
-        </div>
-        <div class="shard-node">NODE_2 :50053</div>
-      </div>
-      <div class="shard-box parity" id="sf-3" style="opacity:0">
-        <div class="shard-top">
-          <span class="shard-label">[PARITY] RS_GF8</span>
-          <span class="shard-size">${formatBytes(result.shard_size)}</span>
-        </div>
-        <div class="shard-node" style="color:var(--hw-amber);">NODE_3 :50054</div>
-      </div>`;
-
-    [0, 1, 2, 3].forEach((i, idx) => {
-      setTimeout(() => {
-        const el = document.getElementById(`sf-${i}`);
-        if (el) {
-          el.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
-          el.style.transform  = 'translateY(-6px)';
-          el.style.opacity    = '1';
-          setTimeout(() => { el.style.transform = 'translateY(0)'; }, 40);
-        }
-      }, idx * 100);
-    });
   },
 
   showError(msg) {
     const res = document.getElementById('upload-result');
     if (!res) return;
     res.innerHTML = `
-      <div class="result-box error-box">
-        <div class="result-row"><span class="result-tag">[ERR]</span><strong>UPLOAD_FAILED:</strong> ${msg}</div>
+      <div class="result-card error">
+        <div style="font-weight:600;color:var(--red);margin-bottom:4px;">✕ Upload Failed</div>
+        <div style="font-family:var(--font-mono);font-size:11.5px;color:var(--text-secondary);">${msg}</div>
       </div>`;
   }
 };
+
+window.Uploader = Uploader;

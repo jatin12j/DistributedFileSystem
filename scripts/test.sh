@@ -8,8 +8,8 @@ PASS=0; FAIL=0
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; BLUE='\033[0;34m'; NC='\033[0m'
 
-pass() { echo -e "${GREEN}  PASS${NC} $1"; ((PASS++)); }
-fail() { echo -e "${RED}  FAIL${NC} $1"; ((FAIL++)); }
+pass() { echo -e "${GREEN}  PASS${NC} $1"; ((++PASS)); }
+fail() { echo -e "${RED}  FAIL${NC} $1"; ((++FAIL)); }
 
 echo -e "\n${BLUE}DFS Quick Test Suite${NC}"
 echo -e "${BLUE}Target: ${BASE}${NC}\n"

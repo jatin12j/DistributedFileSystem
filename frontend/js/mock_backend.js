@@ -339,9 +339,9 @@ const MockBackend = (() => {
   }
 
   function makeSummary(healthy, canReconstruct) {
-    if (healthy === NODE_COUNT) return `All ${NODE_COUNT} nodes healthy // Quorum OK`;
-    if (canReconstruct) return `Degraded: ${healthy}/${NODE_COUNT} nodes up // RS Recoverable`;
-    return `Critical: ${healthy}/${NODE_COUNT} nodes up // Unrecoverable`;
+    if (healthy === NODE_COUNT) return `✅ All ${NODE_COUNT} nodes healthy`;
+    if (canReconstruct) return `⚠️  Degraded: ${healthy}/${NODE_COUNT} nodes up (recoverable)`;
+    return `🔴 Critical: ${healthy}/${NODE_COUNT} nodes up (cannot recover)`;
   }
 
   // ── Public interface ──────────────────────────────────────────────────────

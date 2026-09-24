@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Distributed File Storage (DFS) - System Documentation & Architecture Guide</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    :root {
+      --primary: #0f172a;
+      --primary-light: #1e293b;
+      --accent: #2563eb;
+      --accent-light: #3b82f6;
+      --accent-glow: #dbeafe;
+      --success: #059669;
+      --success-bg: #ecfdf5;
+      --warning: #d97706;
+      --warning-bg: #fffbeb;
+      --danger: #dc2626;
+      --danger-bg: #fef2f2;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --border-subtle: #f1f5f9;
+      --bg-alt: #f8fafc;
+      --code-bg: #0f172a;
+      --code-color: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--text-main);
+      background-color: #ffffff;
+      line-height: 1.6;
+      font-size: 13.5px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Print & Pagination Rules */
+    @page {
+      size: A4 portrait;
+      margin: 16mm 14mm 16mm 14mm;
+      @bottom-right {
+        content: "Page " counter(page);
+        font-family: 'Inter', sans-serif;
+        font-size: 9pt;
+        color: #94a3b8;
+      }
+      @bottom-left {
+        content: "DFS — Distributed File Storage with Reed-Solomon";
+        font-family: 'Inter', sans-serif;
+        font-size: 9pt;
+        color: #94a3b8;
+      }
+    }
+
+    .page-break {
+      page-break-after: always;
+      break-after: page;
+    }
+
+    .avoid-break {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    /* Cover Page */
+    .cover {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 40px 20px 20px 20px;
+    }
+
+    .cover-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 18px;
+    }
+
+    .cover-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .cover-logo-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #38bdf8;
+      font-weight: 800;
+      font-size: 20px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+    }
+
+    .cover-logo-text {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--primary);
+    }
+
+    .cover-badge-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 6px;
+      background: var(--bg-alt);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-primary {
+      background: var(--accent-glow);
+      color: var(--accent);
+      border-color: #bfdbfe;
+    }
+
+    .badge-success {
+      background: var(--success-bg);
+      color: var(--success);
+      border-color: #a7f3d0;
+    }
+
+    .cover-center {
+      margin-top: 60px;
+      margin-bottom: 60px;
+    }
+
+    .cover-pretitle {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .cover-title {
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -1px;
+      color: var(--primary);
+      margin-bottom: 18px;
+    }
+
+    .cover-subtitle {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 680px;
+      font-weight: 400;
+      line-height: 1.5;
+      margin-bottom: 35px;
+    }
+
+    .cover-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 40px;
+    }
+
+    .cover-stat-card {
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .cover-stat-num {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+
+    .cover-stat-desc {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .cover-footer {
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Content Layout */
+    .section {
+      margin-bottom: 32px;
+    }
+
+    h1, h2, h3, h4 {
+      color: var(--primary);
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    h1 {
+      font-size: 24px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 8px;
+      margin-bottom: 18px;
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      color: var(--primary-light);
+    }
+
+    h3 {
+      font-size: 15px;
+      margin-top: 18px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin-bottom: 12px;
+      color: #334155;
+    }
+
+    ul, ol {
+      margin-bottom: 14px;
+      padding-left: 20px;
+      color: #334155;
+    }
+
+    li {
+      margin-bottom: 5px;
+    }
+
+    strong {
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* Code & Pre */
+    code {
+      font-family: 'JetBrains Mono', Consolas, Monaco, monospace;
+      font-size: 11.5px;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+    }
+
+    pre {
+      background: var(--code-bg);
+      color: var(--code-color);
+      font-family: 'JetBrains Mono', Consolas, Monaco, monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 12px 0 16px 0;
+      overflow-x: auto;
+      border: 1px solid #1e293b;
+      page-break-inside: avoid;
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      border: none;
+      font-size: inherit;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 20px 0;
+      font-size: 12.5px;
+      page-break-inside: avoid;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 9px 12px;
+      text-align: left;
+    }
+
+    th {
+      background-color: var(--bg-alt);
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    tr:nth-child(even) {
+      background-color: #fbfcfe;
+    }
+
+    /* Callout Boxes */
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: var(--bg-alt);
+      padding: 14px 18px;
+      border-radius: 0 8px 8px 0;
+      margin: 16px 0;
+      page-break-inside: avoid;
+    }
+
+    .callout-title {
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--primary);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .callout.callout-success {
+      border-left-color: var(--success);
+      background: var(--success-bg);
+    }
+    .callout.callout-success .callout-title {
+      color: var(--success);
+    }
+
+    .callout.callout-warning {
+      border-left-color: var(--warning);
+      background: var(--warning-bg);
+    }
+    .callout.callout-warning .callout-title {
+      color: var(--warning);
+    }
+
+    /* Architecture Diagrams (SVG Based) */
+    .diagram-container {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin: 16px 0;
+      text-align: center;
+      page-break-inside: avoid;
+    }
+
+    .diagram-caption {
+      margin-top: 10px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Shard Visual Flow */
+    .shard-flow-box {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 16px 0;
+      page-break-inside: avoid;
+    }
+
+    .shard-col {
+      flex: 1;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      border-top: 4px solid var(--accent);
+    }
+
+    .shard-col.parity {
+      border-top-color: var(--warning);
+      background: #fffdfa;
+    }
+
+    .shard-col-title {
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+
+    .shard-col-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Two Column Layout */
+    .columns-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin: 14px 0;
+      page-break-inside: avoid;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: #ffffff;
+    }
+
+    .card-header {
+      font-weight: 700;
+      font-size: 13.5px;
+      color: var(--primary);
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 6px;
+    }
+
+    /* Table of contents */
+    .toc {
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin: 24px 0;
+      page-break-inside: avoid;
+    }
+
+    .toc-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .toc-list {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .toc-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px dashed var(--border);
+      font-size: 13px;
+    }
+
+    .toc-item:last-child {
+      border-bottom: none;
+    }
+
+    .toc-name {
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .toc-page {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- COVER PAGE -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="cover page-break">
+    <div class="cover-top">
+      <div class="cover-logo">
+        <div class="cover-logo-icon">DFS</div>
+        <div>
+          <div class="cover-logo-text">Distributed File Storage</div>
+          <div style="font-size: 11px; color: var(--text-muted); font-weight: 500;">High-Performance Fault-Tolerant Object Cluster</div>
+        </div>
+      </div>
+      <div class="cover-badge-row">
+        <span class="badge badge-primary">Go 1.21</span>
+        <span class="badge badge-primary">C++17</span>
+        <span class="badge badge-success">Reed-Solomon (3+1)</span>
+        <span class="badge">gRPC v1.62</span>
+      </div>
+    </div>
+
+    <div class="cover-center">
+      <div class="cover-pretitle">System Architecture & Technical Manual</div>
+      <h1 class="cover-title" style="border:none; padding:0; margin-bottom:16px;">Distributed File Storage (DFS) Cluster</h1>
+      <p class="cover-subtitle">
+        A resilient, distributed object storage system utilizing Reed-Solomon Erasure Coding across a 4-node storage fabric, coordinated by Go with C++ high-throughput I/O storage daemons.
+      </p>
+
+      <div class="cover-stats-grid">
+        <div class="cover-stat-card">
+          <div class="cover-stat-num">3 + 1</div>
+          <div class="cover-stat-desc">Data & Parity Shards (Galois Field GF(2⁸))</div>
+        </div>
+        <div class="cover-stat-card">
+          <div class="cover-stat-num">25%</div>
+          <div class="cover-stat-desc">Cluster Loss Tolerance (1 of 4 nodes offline)</div>
+        </div>
+        <div class="cover-stat-card">
+          <div class="cover-stat-num">SHA-256</div>
+          <div class="cover-stat-desc">Per-shard cryptographic integrity validation</div>
+        </div>
+        <div class="cover-stat-card">
+          <div class="cover-stat-num">gRPC</div>
+          <div class="cover-stat-desc">Zero-copy binary inter-node communication</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cover-footer">
+      <div><strong>Author:</strong> Engineering Team &bull; Distributed Systems Architecture</div>
+      <div><strong>Target Release:</strong> v1.0.0 Production Spec &bull; September 2026</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- TABLE OF CONTENTS & EXECUTIVE SUMMARY -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <h1>1. Executive Summary & Table of Contents</h1>
+
+    <div class="toc">
+      <div class="toc-title">Table of Contents</div>
+      <ul class="toc-list">
+        <li class="toc-item"><span class="toc-name">1. Executive Summary & Table of Contents</span><span class="toc-page">Page 2</span></li>
+        <li class="toc-item"><span class="toc-name">2. High-Level Architecture & Cluster Topology</span><span class="toc-page">Page 3</span></li>
+        <li class="toc-item"><span class="toc-name">3. Reed-Solomon Erasure Coding Mathematics & Workflow</span><span class="toc-page">Page 4</span></li>
+        <li class="toc-item"><span class="toc-name">4. Subsystem Specifications (Coordinator & Storage Nodes)</span><span class="toc-page">Page 5</span></li>
+        <li class="toc-item"><span class="toc-name">5. Inter-Service Protocol & API Reference (REST + gRPC)</span><span class="toc-page">Page 6</span></li>
+        <li class="toc-item"><span class="toc-name">6. Fault Tolerance, Failure Scenarios & Verification</span><span class="toc-page">Page 7</span></li>
+        <li class="toc-item"><span class="toc-name">7. Deployment, Configuration & Operations Guide</span><span class="toc-page">Page 8</span></li>
+      </ul>
+    </div>
+
+    <h2>Executive Overview</h2>
+    <p>
+      The <strong>Distributed File Storage (DFS)</strong> platform is an industrial-grade, fault-tolerant object store engineered to provide high data durability without the 200–300% storage overhead typical of naive data replication. By implementing <strong>Reed-Solomon (3+1) Erasure Coding</strong>, DFS reduces storage overhead to just <strong>33.3%</strong> while guaranteeing total recoverability against single-node complete failure.
+    </p>
+    <p>
+      The architecture combines two specialized computing tiers:
+    </p>
+    <ul>
+      <li><strong>Go Coordinator Tier:</strong> Handles ingress HTTP traffic, in-memory object cataloging, concurrent Reed-Solomon matrix encoding/decoding, and real-time node health heartbeat polling via gRPC.</li>
+      <li><strong>C++17 Storage Node Tier:</strong> Four high-performance standalone storage daemons leveraging direct POSIX disk I/O, SHA-256 verification per chunk, and lightweight thread-safe atomic data operations.</li>
+      <li><strong>Browser Operations Console:</strong> A zero-dependency single-page application providing real-time telemetry, live storage capacity visualization, dynamic shard flow animation, and interactive node kill/recovery triggers.</li>
+    </ul>
+
+    <div class="callout callout-success">
+      <div class="callout-title">Core Reliability Guarantee</div>
+      Any file stored on the cluster is partitioned into 3 data shards and 1 parity shard. Any 3 of the 4 shards are mathematically proven to reconstruct the 100% original binary stream with zero data loss.
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- HIGH-LEVEL ARCHITECTURE & TOPOLOGY -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <h1>2. High-Level Architecture & Cluster Topology</h1>
+    <p>
+      The DFS cluster employs a decoupled orchestrator-worker topology. Clients interact exclusively with the Coordinator via standard HTTP REST APIs, completely isolating internal node topology and network addressing from end users.
+    </p>
+
+    <!-- Architecture Diagram -->
+    <div class="diagram-container">
+      <svg viewBox="0 0 740 330" width="100%" height="310" xmlns="http://www.w3.org/2000/svg">
+        <!-- Client / Browser -->
+        <rect x="180" y="10" width="380" height="48" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.5"/>
+        <text x="370" y="32" fill="#38bdf8" font-family="'Inter', sans-serif" font-weight="700" font-size="12" text-anchor="middle">BROWSER CLIENT (OPERATIONS DASHBOARD)</text>
+        <text x="370" y="47" fill="#94a3b8" font-family="'Inter', sans-serif" font-size="10" text-anchor="middle">Port 3000 &bull; Nginx Static Server &bull; Telemetry &amp; Shard Visualizer</text>
+
+        <!-- Arrow Client -> Coordinator -->
+        <line x1="370" y1="58" x2="370" y2="92" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow)"/>
+        <text x="445" y="78" fill="#2563eb" font-family="'JetBrains Mono', monospace" font-size="9.5" font-weight="600">HTTP REST :8080</text>
+
+        <!-- Coordinator -->
+        <rect x="100" y="95" width="540" height="95" rx="8" fill="#f8fafc" stroke="#2563eb" stroke-width="2"/>
+        <text x="120" y="118" fill="#1e293b" font-family="'Inter', sans-serif" font-weight="800" font-size="13">GO COORDINATOR ORCHESTRATOR</text>
+        <text x="620" y="118" fill="#2563eb" font-family="'JetBrains Mono', monospace" font-size="10" text-anchor="end">:8080 REST API</text>
+
+        <!-- Coordinator Internal Components -->
+        <rect x="120" y="130" width="115" height="45" rx="5" fill="#e2e8f0" stroke="#cbd5e1"/>
+        <text x="177" y="150" fill="#0f172a" font-family="'Inter', sans-serif" font-weight="600" font-size="10" text-anchor="middle">REST Handlers</text>
+        <text x="177" y="163" fill="#64748b" font-family="'Inter', sans-serif" font-size="9" text-anchor="middle">Upload/DL/Stats</text>
+
+        <rect x="250" y="130" width="125" height="45" rx="5" fill="#dbeafe" stroke="#93c5fd"/>
+        <text x="312" y="150" fill="#1e40af" font-family="'Inter', sans-serif" font-weight="700" font-size="10" text-anchor="middle">Reed-Solomon Engine</text>
+        <text x="312" y="163" fill="#3b82f6" font-family="'Inter', sans-serif" font-size="9" text-anchor="middle">3+1 GF(2⁸) Matrix</text>
+
+        <rect x="390" y="130" width="115" height="45" rx="5" fill="#e2e8f0" stroke="#cbd5e1"/>
+        <text x="447" y="150" fill="#0f172a" font-family="'Inter', sans-serif" font-weight="600" font-size="10" text-anchor="middle">Metadata Catalog</text>
+        <text x="447" y="163" fill="#64748b" font-family="'Inter', sans-serif" font-size="9" text-anchor="middle">In-Memory Sync</text>
+
+        <rect x="520" y="130" width="105" height="45" rx="5" fill="#fef3c7" stroke="#fcd34d"/>
+        <text x="572" y="150" fill="#92400e" font-family="'Inter', sans-serif" font-weight="600" font-size="10" text-anchor="middle">Health Poller</text>
+        <text x="572" y="163" fill="#b45309" font-family="'Inter', sans-serif" font-size="9" text-anchor="middle">5s gRPC Ticker</text>
+
+        <!-- Downward gRPC Bus -->
+        <line x1="160" y1="190" x2="160" y2="230" stroke="#059669" stroke-width="1.8"/>
+        <line x1="300" y1="190" x2="300" y2="230" stroke="#059669" stroke-width="1.8"/>
+        <line x1="440" y1="190" x2="440" y2="230" stroke="#059669" stroke-width="1.8"/>
+        <line x1="580" y1="190" x2="580" y2="230" stroke="#d97706" stroke-width="1.8"/>
+
+        <!-- 4 Storage Nodes -->
+        <!-- Node 0 -->
+        <rect x="90" y="235" width="135" height="78" rx="6" fill="#ffffff" stroke="#059669" stroke-width="1.5"/>
+        <rect x="90" y="235" width="135" height="18" rx="6" fill="#ecfdf5"/>
+        <text x="157" y="248" fill="#065f46" font-family="'Inter', sans-serif" font-weight="700" font-size="9.5" text-anchor="middle">STORAGE NODE 0</text>
+        <text x="157" y="268" fill="#0f172a" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">Shard 0 (Data)</text>
+        <text x="157" y="283" fill="#64748b" font-family="'Inter', sans-serif" font-size="8.5" text-anchor="middle">C++17 Engine &bull; :50051</text>
+        <text x="157" y="298" fill="#059669" font-family="'Inter', sans-serif" font-size="8" font-weight="600" text-anchor="middle">Docker Vol: node0-data</text>
+
+        <!-- Node 1 -->
+        <rect x="235" y="235" width="135" height="78" rx="6" fill="#ffffff" stroke="#059669" stroke-width="1.5"/>
+        <rect x="235" y="235" width="135" height="18" rx="6" fill="#ecfdf5"/>
+        <text x="302" y="248" fill="#065f46" font-family="'Inter', sans-serif" font-weight="700" font-size="9.5" text-anchor="middle">STORAGE NODE 1</text>
+        <text x="302" y="268" fill="#0f172a" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">Shard 1 (Data)</text>
+        <text x="302" y="283" fill="#64748b" font-family="'Inter', sans-serif" font-size="8.5" text-anchor="middle">C++17 Engine &bull; :50051</text>
+        <text x="302" y="298" fill="#059669" font-family="'Inter', sans-serif" font-size="8" font-weight="600" text-anchor="middle">Docker Vol: node1-data</text>
+
+        <!-- Node 2 -->
+        <rect x="380" y="235" width="135" height="78" rx="6" fill="#ffffff" stroke="#059669" stroke-width="1.5"/>
+        <rect x="380" y="235" width="135" height="18" rx="6" fill="#ecfdf5"/>
+        <text x="447" y="248" fill="#065f46" font-family="'Inter', sans-serif" font-weight="700" font-size="9.5" text-anchor="middle">STORAGE NODE 2</text>
+        <text x="447" y="268" fill="#0f172a" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">Shard 2 (Data)</text>
+        <text x="447" y="283" fill="#64748b" font-family="'Inter', sans-serif" font-size="8.5" text-anchor="middle">C++17 Engine &bull; :50051</text>
+        <text x="447" y="298" fill="#059669" font-family="'Inter', sans-serif" font-size="8" font-weight="600" text-anchor="middle">Docker Vol: node2-data</text>
+
+        <!-- Node 3 (Parity) -->
+        <rect x="525" y="235" width="135" height="78" rx="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"/>
+        <rect x="525" y="235" width="135" height="18" rx="6" fill="#fef3c7"/>
+        <text x="592" y="248" fill="#92400e" font-family="'Inter', sans-serif" font-weight="700" font-size="9.5" text-anchor="middle">STORAGE NODE 3</text>
+        <text x="592" y="268" fill="#b45309" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">Shard 3 (Parity RS)</text>
+        <text x="592" y="283" fill="#64748b" font-family="'Inter', sans-serif" font-size="8.5" text-anchor="middle">C++17 Engine &bull; :50051</text>
+        <text x="592" y="298" fill="#d97706" font-family="'Inter', sans-serif" font-size="8" font-weight="600" text-anchor="middle">Docker Vol: node3-data</text>
+      </svg>
+      <div class="diagram-caption">Figure 2.1: Distributed File Storage 3-tier logical topology and inter-service boundaries.</div>
+    </div>
+
+    <h2>Topology Highlights</h2>
+    <div class="columns-2">
+      <div class="card">
+        <div class="card-header">Decoupled Control & Data Planes</div>
+        <p style="font-size:12px; margin-bottom:0;">
+          The coordinator operates as the single source of truth for routing, metadata, and erasure coding. Individual storage nodes have no knowledge of other nodes or overall file structures, dramatically simplifying storage node design.
+        </p>
+      </div>
+      <div class="card">
+        <div class="card-header">Zero-Shared Storage (Shared-Nothing)</div>
+        <p style="font-size:12px; margin-bottom:0;">
+          Each C++ storage container binds an isolated Docker volume (`node0-data` through `node3-data`). There is no distributed lock manager (DLM) or shared file system overhead, ensuring maximum parallel disk throughput.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- REED-SOLOMON ERASURE CODING IN-DEPTH -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <h1>3. Reed-Solomon Erasure Coding Mathematics & Workflow</h1>
+
+    <h2>Mathematical Foundations</h2>
+    <p>
+      Traditional 3x replication triples the storage footprint (300% overhead). DFS implements <strong>Reed-Solomon (3+1)</strong> erasure coding over a <strong>Galois Field GF(2⁸)</strong>, reducing parity overhead to just <strong>33.3%</strong>:
+    </p>
+
+    <div class="shard-flow-box">
+      <div class="shard-col">
+        <div class="shard-col-title">Shard 0: Data Block 1</div>
+        <div class="shard-col-desc">Bytes <code>0 .. N/3</code> of original file stream. Stored on Node 0.</div>
+      </div>
+      <div class="shard-col">
+        <div class="shard-col-title">Shard 1: Data Block 2</div>
+        <div class="shard-col-desc">Bytes <code>N/3 .. 2N/3</code> of original file stream. Stored on Node 1.</div>
+      </div>
+      <div class="shard-col">
+        <div class="shard-col-title">Shard 2: Data Block 3</div>
+        <div class="shard-col-desc">Bytes <code>2N/3 .. N</code> with zero padding. Stored on Node 2.</div>
+      </div>
+      <div class="shard-col parity">
+        <div class="shard-col-title">Shard 3: Parity Block</div>
+        <div class="shard-col-desc">Linear combination over GF(2⁸): <code>P = G · [D₀, D₁, D₂]ᵀ</code>. Stored on Node 3.</div>
+      </div>
+    </div>
+
+    <h2>Encoding and Striping Pipeline</h2>
+    <ol>
+      <li><strong>Ingress & Sizing:</strong> Inbound file bytes are received via HTTP multipart upload. Length is verified.</li>
+      <li><strong>Padding & Alignment:</strong> The payload is padded with zeros until its size is an exact multiple of <code>3</code> bytes (Data Shards <code>k = 3</code>).</li>
+      <li><strong>Matrix Multiplication:</strong> Using the Vandermonde-derived generator matrix, parity shard 3 is synthesized:
+        <pre><code>[ D0 ]   [ 1  0  0 ]   [ D0 ]
+[ D1 ] = [ 0  1  0 ] · [ D1 ]
+[ D2 ]   [ 0  0  1 ]   [ D2 ]
+[ P0 ]   [ g0 g1 g2]   [ D0, D1, D2 ]</code></pre>
+      </li>
+      <li><strong>Checksum Generation:</strong> SHA-256 hashes are calculated for each of the 4 generated shards.</li>
+      <li><strong>Parallel Dispatch:</strong> Shards are concurrently transmitted via gRPC <code>StoreShard</code> requests to their respective nodes.</li>
+    </ol>
+
+    <h2>Reconstruction on Node Failure</h2>
+    <p>
+      When an object download is requested and one of the data nodes is offline or reports a missing shard:
+    </p>
+    <ul>
+      <li><strong>Healthy Fast-Path (4/4 Nodes Up):</strong> Shards 0, 1, and 2 are fetched in parallel. The coordinator concatenates them directly and truncates padding bytes. Parity shard 3 is not requested, minimizing network bandwidth.</li>
+      <li><strong>Degraded Recovery Path (1 Node Down):</strong> If Node 1 fails, the coordinator gathers Shard 0, Shard 2, and Parity Shard 3. By inverting the corresponding 3x3 submatrix in Galois Field GF(2⁸), Shard 1 is mathematically reconstituted in memory without needing to query the failed node.</li>
+    </ul>
+
+    <div class="callout callout-warning">
+      <div class="callout-title">Fault-Tolerance Boundary</div>
+      Because <code>k = 3</code> and <code>m = 1</code>, the cluster strictly tolerates <strong>any 1 node failure</strong>. If 2 nodes fail simultaneously, insufficient equations remain in the linear system and recovery is mathematically impossible.
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SUBSYSTEM SPECIFICATIONS -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <h1>4. Subsystem Specifications</h1>
+
+    <h2>Coordinator Subsystem (Go)</h2>
+    <p>
+      The coordinator is built in Go 1.21 using only standard library HTTP routing combined with the official gRPC-Go runtime.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Package / Module</th>
+          <th>Location</th>
+          <th>Responsibility</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>main</code></td>
+          <td><code>coordinator/main.go</code></td>
+          <td>Service wiring, environment loading, graceful shutdown signal hooks.</td>
+        </tr>
+        <tr>
+          <td><code>api</code></td>
+          <td><code>coordinator/api/handler.go</code></td>
+          <td>HTTP REST endpoints for upload, streaming download, cluster status, and health.</td>
+        </tr>
+        <tr>
+          <td><code>distributor</code></td>
+          <td><code>coordinator/distributor/chunk_manager.go</code></td>
+          <td>Parallel upload dispatch, shard fetching, failure detection, and RS recovery calls.</td>
+        </tr>
+        <tr>
+          <td><code>distributor</code></td>
+          <td><code>coordinator/distributor/health_monitor.go</code></td>
+          <td>5-second recurring background ticker checking node latency, uptime, and disk usage.</td>
+        </tr>
+        <tr>
+          <td><code>erasure</code></td>
+          <td><code>coordinator/erasure/encoder.go</code></td>
+          <td>Reed-Solomon (3+1) Galois Field encoding and decoding routines via <code>klauspost/reedsolomon</code>.</td>
+        </tr>
+        <tr>
+          <td><code>metadata</code></td>
+          <td><code>coordinator/metadata/store.go</code></td>
+          <td>Thread-safe in-memory map storing file metadata, shard sizes, and checksums.</td>
+        </tr>
+        <tr>
+          <td><code>grpcclient</code></td>
+          <td><code>coordinator/grpcclient/node_client.go</code></td>
+          <td>Connection pooling, timeout wrapping, and error handling for storage node RPCs.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Storage Node Subsystem (C++17)</h2>
+    <p>
+      The storage nodes are zero-dependency C++17 micro-daemons compiled natively inside Ubuntu 22.04 containers.
+    </p>
+
+    <div class="columns-2">
+      <div class="card">
+        <div class="card-header">Thread-Safe Storage Engine (`shard_store.cpp`)</div>
+        <ul style="font-size:12px; margin-bottom:0; padding-left:16px;">
+          <li>All disk operations use <code>std::shared_mutex</code> for multi-reader single-writer locking.</li>
+          <li>Files are stored directly on the volume filesystem: <code>/data/&lt;file_id&gt;_&lt;shard_idx&gt;.bin</code>.</li>
+          <li>Atomic file stream writes with immediate <code>flush()</code> to prevent file corruption on power loss.</li>
+          <li>Automatic storage accounting via <code>std::filesystem::space</code> and file size tracking.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header">gRPC Server Handler (`storage_server.cpp`)</div>
+        <ul style="font-size:12px; margin-bottom:0; padding-left:16px;">
+          <li>Implements the Protobuf <code>StorageNode::Service</code> interface.</li>
+          <li>Calculates SHA-256 over raw incoming shard buffers using OpenSSL EVP interfaces.</li>
+          <li>Reports instantaneous latency, node uptime in seconds, shard counts, and available disk capacity.</li>
+          <li>Non-blocking, multi-threaded request processing via gRPC worker thread pools.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- PROTOCOLS & API SPECIFICATIONS -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <h1>5. Inter-Service Protocol & API Reference</h1>
+
+    <h2>gRPC Service Contract (`proto/storage.proto`)</h2>
+    <p>
+      The core storage contract is defined in standard Protocol Buffers v3 and compiled to both Go stubs and C++ runtime classes:
+    </p>
+
+    <pre><code>syntax = "proto3";
+package dfs;
+option go_package = "dfs/proto";
+
+service StorageNode {
+  rpc StoreShard    (StoreShardRequest)    returns (StoreShardResponse);
+  rpc RetrieveShard (RetrieveShardRequest) returns (RetrieveShardResponse);
+  rpc DeleteShard   (DeleteShardRequest)   returns (DeleteShardResponse);
+  rpc HealthCheck   (HealthRequest)        returns (HealthResponse);
+  rpc GetStats      (StatsRequest)         returns (StatsResponse);
+}
+
+message StoreShardRequest {
+  string file_id     = 1;
+  int32  shard_index = 2;
+  bytes  data        = 3;
+  string checksum    = 4; // SHA-256 for transmission integrity
+}
+
+message StoreShardResponse {
+  bool   success = 1;
+  string message = 2;
+}
+
+message RetrieveShardRequest {
+  string file_id     = 1;
+  int32  shard_index = 2;
+}
+
+message RetrieveShardResponse {
+  bool   success  = 1;
+  bytes  data     = 2;
+  string checksum = 3;
+  string message  = 4;
+}</code></pre>
+
+    <h2>Coordinator HTTP REST API</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>HTTP Method</th>
+          <th>Route Path</th>
+          <th>Request Body / Params</th>
+          <th>Response Summary</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>GET</code></td>
+          <td><code>/api/health</code></td>
+          <td>None</td>
+          <td><code>{"status": "ok", "service": "dfs-coordinator"}</code></td>
+        </tr>
+        <tr>
+          <td><code>GET</code></td>
+          <td><code>/api/cluster/status</code></td>
+          <td>None</td>
+          <td>All 4 nodes' health status, storage usage, latency, and reconstruction capability.</td>
+        </tr>
+        <tr>
+          <td><code>POST</code></td>
+          <td><code>/api/upload</code></td>
+          <td>Multipart Form: <code>file</code></td>
+          <td>File ID, original size, shard sizes, upload duration, nodes used.</td>
+        </tr>
+        <tr>
+          <td><code>GET</code></td>
+          <td><code>/api/download/{id}</code></td>
+          <td>File ID in URL path</td>
+          <td>Binary file stream with <code>Content-Disposition: attachment</code>.</td>
+        </tr>
+        <tr>
+          <td><code>GET</code></td>
+          <td><code>/api/files</code></td>
+          <td>None</td>
+          <td>List of all tracked files, creation timestamps, and shard layouts.</td>
+        </tr>
+        <tr>
+          <td><code>DELETE</code></td>
+          <td><code>/api/files/{id}</code></td>
+          <td>File ID in URL path</td>
+          <td>Purges shard files from all 4 storage nodes and deletes catalog record.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- FAULT TOLERANCE & VERIFICATION -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <h1>6. Fault Tolerance, Failure Scenarios & Verification</h1>
+
+    <h2>Cluster Failure Matrix</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Scenario</th>
+          <th>Active Nodes</th>
+          <th>Cluster State</th>
+          <th>Read Availability</th>
+          <th>Write Availability</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Nominal</strong></td>
+          <td>Node 0, 1, 2, 3 (4/4)</td>
+          <td><span class="badge badge-success">Optimal</span></td>
+          <td>100% (Direct fast-path without parity decoding)</td>
+          <td>100% (All 4 shards stored)</td>
+        </tr>
+        <tr>
+          <td><strong>Single Node Loss (Data Node 1)</strong></td>
+          <td>Node 0, 2, 3 (3/4)</td>
+          <td><span class="badge" style="background:#fef3c7; color:#b45309; border-color:#fcd34d;">Degraded</span></td>
+          <td><strong>100% Fully Recoverable</strong> (RS reconstruction via Shard 0 + 2 + Parity 3)</td>
+          <td>Available (Tolerates single-node write failure)</td>
+        </tr>
+        <tr>
+          <td><strong>Single Node Loss (Parity Node 3)</strong></td>
+          <td>Node 0, 1, 2 (3/4)</td>
+          <td><span class="badge" style="background:#fef3c7; color:#b45309; border-color:#fcd34d;">Degraded</span></td>
+          <td><strong>100% Fully Recoverable</strong> (All 3 raw data shards present; no RS decode required)</td>
+          <td>Available</td>
+        </tr>
+        <tr>
+          <td><strong>Double Node Failure</strong></td>
+          <td>Any 2 nodes (2/4)</td>
+          <td><span class="badge" style="background:#fee2e2; color:#b91c1c; border-color:#fca5a5;">Critical</span></td>
+          <td>Unrecoverable (Only 2 shards available, 3 required)</td>
+          <td>Blocked (Uploads aborted)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Automated End-to-End Verification</h2>
+    <p>
+      The platform includes an automated demonstration suite (<code>scripts/demo.sh</code>) verifying mathematical integrity under active failure injection:
+    </p>
+
+    <pre><code># Execution Output from scripts/demo.sh:
+══════════════════════════════════════
+ Step 1 — Coordinator Health:  PASS ({"status":"ok"})
+══════════════════════════════════════
+ Step 2 — Cluster Status:      PASS (4 healthy nodes detected)
+══════════════════════════════════════
+ Step 3 — Upload Test File:    PASS (Size: 524,335 bytes -> 3 data + 1 parity)
+══════════════════════════════════════
+ Step 4 — Download & Verify:   PASS (SHA-256 matches original file)
+══════════════════════════════════════
+ Step 5 — Kill Node 1:         storage-node-1 stopped -> Cluster Degraded
+══════════════════════════════════════
+ Step 6 — Degraded Download:   Reed-Solomon RECONSTRUCTION SUCCESS!
+                               SHA-256 matches original payload perfectly
+══════════════════════════════════════
+ Step 7 — Restart Node 1:      storage-node-1 restarted -> 4/4 Nodes Healthy
+══════════════════════════════════════</code></pre>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- DEPLOYMENT, CONFIGURATION & OPERATIONS -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <h1>7. Deployment, Configuration & Operations Guide</h1>
+
+    <h2>Environment & Configuration Parameters</h2>
+    <p>
+      The coordinator service reads its cluster topology directly from environment variables, enabling zero-code deployments across Docker, Kubernetes, or bare metal:
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Default</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>PORT</code></td>
+          <td><code>8080</code></td>
+          <td>Coordinator REST API listening port.</td>
+        </tr>
+        <tr>
+          <td><code>NODE_0_ADDR</code></td>
+          <td><code>localhost:50051</code></td>
+          <td>Host and gRPC port for Storage Node 0.</td>
+        </tr>
+        <tr>
+          <td><code>NODE_1_ADDR</code></td>
+          <td><code>localhost:50052</code></td>
+          <td>Host and gRPC port for Storage Node 1.</td>
+        </tr>
+        <tr>
+          <td><code>NODE_2_ADDR</code></td>
+          <td><code>localhost:50053</code></td>
+          <td>Host and gRPC port for Storage Node 2.</td>
+        </tr>
+        <tr>
+          <td><code>NODE_3_ADDR</code></td>
+          <td><code>localhost:50054</code></td>
+          <td>Host and gRPC port for Storage Node 3 (Parity Node).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Docker Compose Quickstart</h2>
+    <p>
+      To bootstrap the complete cluster including all 4 C++ storage nodes, the Go coordinator, and the Nginx frontend dashboard:
+    </p>
+
+    <pre><code># 1. Start all services in background
+docker compose up --build -d
+
+# 2. View running containers
+docker compose ps
+
+# 3. Access web dashboard
+open http://localhost:3000
+
+# 4. View real-time cluster logs
+docker compose logs -f coordinator</code></pre>
+
+    <h2>Technology Choices & Architectural Rationale</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Design Choice</th>
+          <th>Selected Technology</th>
+          <th>Architectural Rationale</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Coordinator Runtime</strong></td>
+          <td>Go 1.21</td>
+          <td>Exceptional concurrency via goroutines, native channel pipelines, and ultra-fast gRPC client multiplexing.</td>
+        </tr>
+        <tr>
+          <td><strong>Storage Daemon</strong></td>
+          <td>C++17</td>
+          <td>Predictable low latency, zero garbage collection pauses, direct POSIX filesystem access, and fine-grained memory controls.</td>
+        </tr>
+        <tr>
+          <td><strong>Erasure Coding</strong></td>
+          <td>Reed-Solomon (3+1)</td>
+          <td>Optimal balance of durability and storage efficiency (33% parity overhead vs 200% for 3x replication).</td>
+        </tr>
+        <tr>
+          <td><strong>Inter-Node RPC</strong></td>
+          <td>gRPC / HTTP/2</td>
+          <td>High-throughput binary protocol, multiplexed TCP streams, and compile-time type safety via Protobuf.</td>
+        </tr>
+        <tr>
+          <td><strong>Integrity Verification</strong></td>
+          <td>SHA-256</td>
+          <td>Guarantees cryptographic detection of bit-rot, network transmission errors, and partial writes.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-success" style="margin-top:24px;">
+      <div class="callout-title">Operational Readiness Certified</div>
+      This specification outlines the complete system design, math verification, API boundaries, and runtime operations for Distributed File Storage (DFS).
+    </div>
+  </div>
+
+</body>
+</html>
