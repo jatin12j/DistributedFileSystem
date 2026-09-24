@@ -4,8 +4,8 @@
 // Activated automatically when the real API at localhost:8080 is unreachable.
 //
 // What it does:
-//   • Splits files into 3 data + 1 parity chunks (byte-level)
-//   • Stores shards in localStorage (persists across page reload)
+//   • Splits files into 3 data + 1 parity chunks (byte-level Reed-Solomon simulation)
+//   • Stores shards in memory (fast, handles any file size without quota crashes)
 //   • Reconstructs files from any 3 of 4 shards (simulates RS recovery)
 //   • Simulates node failures so the UI demo works end-to-end
 //   • Returns exactly the same JSON shape as the real Go coordinator
@@ -17,6 +17,9 @@ const MockBackend = (() => {
 
   const NODE_COUNT   = 4;
   const DATA_SHARDS  = 3;
+
+  // In-memory binary shard cache (key -> Uint8Array)
+  const memoryShards = new Map();
 
   // Per-node simulated state
   const nodeState = Array.from({ length: NODE_COUNT }, (_, i) => ({
@@ -30,10 +33,23 @@ const MockBackend = (() => {
   }));
 
   // Persist file metadata in localStorage
-  function getMeta()    { try { return JSON.parse(localStorage.getItem('dfs_meta') || '{}'); } catch { return {}; } }
-  function saveMeta(m)  { localStorage.setItem('dfs_meta', JSON.stringify(m)); }
-  function getShards()  { try { return JSON.parse(localStorage.getItem('dfs_shards') || '{}'); } catch { return {}; } }
-  function saveShards(s){ localStorage.setItem('dfs_shards', JSON.stringify(s)); }
+  function getMeta() {
+    try { return JSON.parse(localStorage.getItem('dfs_meta') || '{}'); }
+    catch { return {}; }
+  }
+  function saveMeta(m) {
+    try { localStorage.setItem('dfs_meta', JSON.stringify(m)); }
+    catch (e) { console.warn('Metadata save error:', e); }
+  }
+
+  function getLocalShards() {
+    try { return JSON.parse(localStorage.getItem('dfs_shards') || '{}'); }
+    catch { return {}; }
+  }
+  function saveLocalShards(s) {
+    try { localStorage.setItem('dfs_shards', JSON.stringify(s)); }
+    catch (e) { console.warn('LocalStorage quota limit reached — using in-memory store for shards.'); }
+  }
 
   // ── Reed-Solomon simulation (byte-level XOR parity) ───────────────────────
 
@@ -94,19 +110,25 @@ const MockBackend = (() => {
 
   // SHA-256 hex digest (async Web Crypto)
   async function sha256(bytes) {
-    const hashBuf  = await crypto.subtle.digest('SHA-256', bytes);
-    const hashArr  = Array.from(new Uint8Array(hashBuf));
-    return hashArr.map(b => b.toString(16).padStart(2, '0')).join('');
+    try {
+      const hashBuf = await crypto.subtle.digest('SHA-256', bytes);
+      const hashArr = Array.from(new Uint8Array(hashBuf));
+      return hashArr.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch {
+      return 'hash-' + Math.random().toString(36).slice(2, 10);
+    }
   }
 
-  // Convert Uint8Array → base64 string (for localStorage)
+  // Fast chunked base64 conversion (prevents stack overflow on large buffers)
   function toB64(arr) {
     let bin = '';
-    for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+    const chunk = 8192;
+    for (let i = 0; i < arr.length; i += chunk) {
+      bin += String.fromCharCode.apply(null, arr.subarray(i, i + chunk));
+    }
     return btoa(bin);
   }
 
-  // Convert base64 string → Uint8Array
   function fromB64(b64) {
     const bin = atob(b64);
     const arr = new Uint8Array(bin.length);
@@ -114,37 +136,44 @@ const MockBackend = (() => {
     return arr;
   }
 
-  // Simulate random latency
+  // Simulate latency
   function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
   // ── Public API — mirrors real Go coordinator REST responses ───────────────
 
   async function uploadFile(file) {
     const startTime = Date.now();
-    const fileId    = crypto.randomUUID();
+    const fileId    = (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'fid-' + Math.random().toString(36).substring(2);
     const mimeType  = file.type || 'application/octet-stream';
 
     const buffer   = await file.arrayBuffer();
     const { data, parity, shardSize, totalLen } = encode(buffer);
 
     // Compute checksums
-    const allShards   = [...data, parity];
-    const checksums   = await Promise.all(allShards.map(s => sha256(s)));
+    const allShards = [...data, parity];
+    const checksums = await Promise.all(allShards.map(s => sha256(s)));
 
-    // "Store" each shard on its simulated node
-    const shardStore  = getShards();
-    const nodesUsed   = [];
+    const nodesUsed  = [];
+    const localStore = getLocalShards();
 
     for (let i = 0; i < NODE_COUNT; i++) {
       if (!nodeState[i].online) continue; // skip dead nodes
       const key = `${fileId}_${i}`;
-      shardStore[key] = toB64(allShards[i]);
+
+      // Save in fast memory cache
+      memoryShards.set(key, allShards[i]);
+
+      // If shard is reasonably sized, attempt local persistence
+      if (allShards[i].length < 256 * 1024) {
+        try { localStore[key] = toB64(allShards[i]); } catch {}
+      }
+
       nodeState[i].writes++;
       nodeState[i].latency = Math.floor(Math.random() * 5) + 1;
       nodesUsed.push(nodeState[i].id);
     }
 
-    saveShards(shardStore);
+    saveLocalShards(localStore);
 
     // Save metadata
     const meta = getMeta();
@@ -161,7 +190,7 @@ const MockBackend = (() => {
     };
     saveMeta(meta);
 
-    await delay(300 + Math.random() * 200); // simulate network
+    await delay(150 + Math.random() * 100);
 
     const uploadTime = Date.now() - startTime;
     return {
@@ -174,35 +203,48 @@ const MockBackend = (() => {
       parity_shards:  1,
       upload_time_ms: uploadTime,
       nodes_used:     nodesUsed,
-      message:        'File distributed successfully (Demo Mode)',
+      message:        'File distributed successfully (In-Browser Simulation)',
     };
   }
 
   async function downloadFile(fileId) {
     const meta = getMeta()[fileId];
-    if (!meta) throw new Error('File not found in demo storage');
+    if (!meta) throw new Error('File not found in storage');
 
-    const shardStore = getShards();
+    const localStore = getLocalShards();
     const allShards  = [];
     let   missingIdx = -1;
 
     for (let i = 0; i < NODE_COUNT; i++) {
       const key = `${fileId}_${i}`;
-      if (!nodeState[i].online || !shardStore[key]) {
+      if (!nodeState[i].online) {
         allShards.push(null);
         if (missingIdx === -1) missingIdx = i;
-      } else {
-        allShards.push(fromB64(shardStore[key]));
+      } else if (memoryShards.has(key)) {
+        allShards.push(memoryShards.get(key));
         nodeState[i].reads++;
+      } else if (localStore[key]) {
+        try {
+          const arr = fromB64(localStore[key]);
+          memoryShards.set(key, arr);
+          allShards.push(arr);
+          nodeState[i].reads++;
+        } catch {
+          allShards.push(null);
+          if (missingIdx === -1) missingIdx = i;
+        }
+      } else {
+        allShards.push(null);
+        if (missingIdx === -1) missingIdx = i;
       }
     }
 
     const available = allShards.filter(Boolean).length;
     if (available < DATA_SHARDS) {
-      throw new Error(`Not enough shards: only ${available}/4 nodes available (need 3)`);
+      throw new Error(`Quorum lost: only ${available}/4 nodes online (need at least 3 for Reed-Solomon reconstruction)`);
     }
 
-    await delay(200 + Math.random() * 150);
+    await delay(100 + Math.random() * 100);
 
     const recovered = decode(
       allShards.map(s => s || new Uint8Array(meta.shard_size)),
@@ -215,19 +257,18 @@ const MockBackend = (() => {
     return {
       blob,
       fileName:     meta.file_name,
-      retrievalTime: Math.floor(Math.random() * 30) + 5,
+      retrievalTime: Math.floor(Math.random() * 20) + 5,
       reconstructed: missingIdx !== -1,
     };
   }
 
   async function getClusterStatus() {
-    // Tick uptime
     nodeState.forEach(n => { if (n.online) n.uptime++; });
 
     const nodes = nodeState.map((n, i) => ({
       node_id:       n.id,
       index:         i,
-      address:       `localhost:${n.port}`,
+      address:       `storage-node-${i}:50051`,
       healthy:       n.online,
       storage_used:  estimateStorageUsed(i),
       storage_total: 10 * 1024 * 1024 * 1024,
@@ -235,7 +276,7 @@ const MockBackend = (() => {
       uptime_secs:   n.uptime,
       latency_ms:    n.online ? n.latency : 0,
       last_checked:  new Date().toISOString(),
-      last_error:    n.online ? '' : 'Connection refused (simulated failure)',
+      last_error:    n.online ? '' : 'Node offline (simulated crash)',
     }));
 
     const healthyCount = nodes.filter(n => n.healthy).length;
@@ -248,69 +289,80 @@ const MockBackend = (() => {
       summary:         makeSummary(healthyCount, canReconstruct),
       nodes,
       timestamp:       new Date().toISOString(),
-      demo_mode:       true,
     };
   }
 
   function getFiles() {
-    const meta   = getMeta();
-    const files  = Object.values(meta).map(f => ({
-      file_id:       f.file_id,
-      file_name:     f.file_name,
-      original_size: f.original_size,
-      mime_type:     f.mime_type,
-      created_at:    f.created_at,
-      data_shards:   f.data_shards,
-      parity_shards: f.parity_shards,
-    }));
-    return { files, count: files.length };
+    const meta = getMeta();
+    return {
+      files: Object.values(meta).map(f => ({
+        file_id:       f.file_id,
+        file_name:     f.file_name,
+        original_size: f.original_size,
+        data_shards:   f.data_shards,
+        parity_shards: f.parity_shards,
+        created_at:    f.created_at,
+      })),
+      total: Object.keys(meta).length,
+    };
   }
 
   function deleteFile(fileId) {
-    const meta    = getMeta();
-    const shards  = getShards();
+    const meta = getMeta();
     delete meta[fileId];
-    for (let i = 0; i < NODE_COUNT; i++) delete shards[`${fileId}_${i}`];
     saveMeta(meta);
-    saveShards(shards);
-    return { success: true, message: `File ${fileId} deleted` };
-  }
 
-  // ── Node control (demo UI buttons) ────────────────────────────────────────
+    const localStore = getLocalShards();
+    for (let i = 0; i < NODE_COUNT; i++) {
+      const key = `${fileId}_${i}`;
+      memoryShards.delete(key);
+      delete localStore[key];
+    }
+    saveLocalShards(localStore);
+    return { success: true };
+  }
 
   function killNode(index) {
     if (index >= 0 && index < NODE_COUNT) {
-      nodeState[index].online = false;
+      nodeState[index].online  = false;
+      nodeState[index].latency = 0;
     }
   }
 
   function recoverAll() {
-    nodeState.forEach(n => { n.online = true; });
+    nodeState.forEach(n => {
+      n.online  = true;
+      n.latency = Math.floor(Math.random() * 4) + 1;
+    });
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  function countShards(nodeIndex) {
-    const shards = getShards();
-    return Object.keys(shards).filter(k => k.endsWith(`_${nodeIndex}`)).length;
-  }
-
-  function estimateStorageUsed(nodeIndex) {
-    const shards = getShards();
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function estimateStorageUsed(nodeIdx) {
+    const meta = getMeta();
     let total = 0;
-    for (const [k, v] of Object.entries(shards)) {
-      if (k.endsWith(`_${nodeIndex}`)) total += v.length * 0.75; // base64 overhead
+    for (const f of Object.values(meta)) {
+      total += f.shard_size || 0;
     }
-    return Math.floor(total);
+    return total;
   }
 
-  function makeSummary(healthy, canReconstruct) {
-    if (healthy === NODE_COUNT) return `✅ All ${NODE_COUNT} nodes healthy`;
-    if (canReconstruct) return `⚠️  Degraded: ${healthy}/${NODE_COUNT} nodes up (recoverable)`;
-    return `🔴 Critical: ${healthy}/${NODE_COUNT} nodes up (cannot recover)`;
+  function countShards(nodeIdx) {
+    return Object.keys(getMeta()).length;
   }
 
-  // ── Public interface ──────────────────────────────────────────────────────
-  return { uploadFile, downloadFile, getClusterStatus, getFiles, deleteFile, killNode, recoverAll };
+  function makeSummary(healthy, canRecon) {
+    if (healthy === 4) return 'All 4 nodes healthy';
+    if (canRecon)      return `${healthy}/4 nodes online — Reed-Solomon parity active`;
+    return 'CRITICAL: Insufficient nodes for Reed-Solomon reconstruction';
+  }
 
+  return {
+    uploadFile,
+    downloadFile,
+    getClusterStatus,
+    getFiles,
+    deleteFile,
+    killNode,
+    recoverAll,
+  };
 })();

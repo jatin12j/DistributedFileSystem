@@ -1,6 +1,9 @@
 // frontend/js/upload.js
 // File upload — drag-and-drop + shard distribution visualiser
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+window.sleep = sleep;
+
 const Uploader = {
   uploadedFiles: [],   // in-memory list for the file table
 
@@ -35,19 +38,19 @@ const Uploader = {
     this.showProgress(true, 0, 'Reading file & computing checksum…');
     this.clearResult();
 
-    // Animate progress bar through phases
-    const phases = [
-      [15, 200, 'Computing Reed-Solomon 3+1 Galois field matrix…'],
-      [40, 300, 'Encoding data shards & generating parity shard…'],
-      [70, 350, 'Distributing shards in parallel across 4 storage nodes…'],
-      [90, 250, 'Verifying quorum & acknowledging replication…'],
-    ];
-    for (const [pct, delay, label] of phases) {
-      await sleep(delay);
-      this.showProgress(true, pct, label);
-    }
-
     try {
+      // Animate progress bar through phases
+      const phases = [
+        [20, 150, 'Computing Reed-Solomon 3+1 Galois field matrix…'],
+        [45, 180, 'Encoding data shards & generating parity shard…'],
+        [75, 200, 'Distributing shards in parallel across 4 storage nodes…'],
+        [90, 150, 'Verifying quorum & acknowledging replication…'],
+      ];
+      for (const [pct, delay, label] of phases) {
+        await sleep(delay);
+        this.showProgress(true, pct, label);
+      }
+
       const result = await API.uploadFile(file);
       this.showProgress(true, 100, 'Upload & distribution complete!');
 
@@ -74,7 +77,7 @@ const Uploader = {
       Logger.error(`❌ Upload failed: ${err.message}`);
       this.showError(err.message);
     } finally {
-      setTimeout(() => this.showProgress(false, 0), 1600);
+      setTimeout(() => this.showProgress(false, 0), 1200);
     }
   },
 
