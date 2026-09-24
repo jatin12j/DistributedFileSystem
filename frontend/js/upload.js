@@ -1,10 +1,10 @@
 // frontend/js/upload.js
-// File upload — drag-and-drop + shard distribution visualiser
+// Industrial Shard Distribution & Encoding Visualizer
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const Uploader = {
-  uploadedFiles: [],   // in-memory list for the file table
+  uploadedFiles: [],
 
   init() {
     const input = document.getElementById('file-input');
@@ -12,7 +12,7 @@ const Uploader = {
       input.addEventListener('change', e => {
         const file = e.target.files[0];
         if (file) this.upload(file);
-        e.target.value = ''; // allow re-selecting same file
+        e.target.value = '';
       });
     }
 
@@ -33,17 +33,16 @@ const Uploader = {
   },
 
   async upload(file) {
-    Logger.info(`📤 Uploading "${file.name}" (${formatBytes(file.size)})`);
-    this.showProgress(true, 5, 'Reading file & computing checksum…');
+    Logger.info(`[INGEST] Initiating upload for "${file.name}" (${formatBytes(file.size)})`);
+    this.showProgress(true, 5, '[STAGE 1/4] Reading byte stream & hashing SHA-256…');
     this.clearResult();
 
     try {
-      // Animate progress bar through RS encoding phases
       const phases = [
-        [20, 200, 'Computing Reed-Solomon 3+1 Galois field matrix…'],
-        [45, 250, 'Encoding data shards & generating parity shard…'],
-        [75, 300, 'Distributing shards across 4 storage nodes…'],
-        [90, 200, 'Verifying quorum & acknowledging replication…'],
+        [20, 180, '[STAGE 2/4] Generating Cauchy Galois Field GF(2^8) generator matrix…'],
+        [45, 220, '[STAGE 3/4] Slicing 3 data shards & computing XOR parity shard…'],
+        [75, 260, '[STAGE 4/4] Distributing shards in parallel across 4 gRPC nodes…'],
+        [90, 160, '[COMMIT] Verifying quorum confirmation across cluster…'],
       ];
       for (const [pct, delay, label] of phases) {
         await sleep(delay);
@@ -51,7 +50,7 @@ const Uploader = {
       }
 
       const result = await API.uploadFile(file);
-      this.showProgress(true, 100, 'Upload & distribution complete!');
+      this.showProgress(true, 100, '[COMMITTED] Quorum verified. All shards stored.');
 
       this.uploadedFiles.push({
         file_id:       result.file_id,
@@ -64,7 +63,7 @@ const Uploader = {
       });
 
       Logger.success(
-        `✅ "${result.file_name}" distributed — ${result.upload_time_ms}ms ` +
+        `[STRIPE_OK] "${result.file_name}" committed in ${result.upload_time_ms}ms ` +
         `| ID: ${result.file_id.substring(0,8)}…`
       );
 
@@ -73,7 +72,7 @@ const Uploader = {
       FileList.render(this.uploadedFiles);
 
     } catch (err) {
-      Logger.error(`❌ Upload failed: ${err.message}`);
+      Logger.error(`[UPLOAD_ERR] ${err.message}`);
       this.showError(err.message);
     } finally {
       setTimeout(() => this.showProgress(false, 0), 1600);
@@ -103,22 +102,22 @@ const Uploader = {
 
     res.innerHTML = `
       <div class="result-box success-box">
-        <div class="result-row" style="font-weight:700;font-size:1rem;color:#10B981;">
-          <span class="result-icon">✅</span>
-          <span>"${result.file_name}" successfully striped &amp; stored</span>
+        <div class="result-row" style="font-weight:700;color:var(--hw-green);">
+          <span class="result-tag">[STATUS: 200_OK]</span>
+          <span>Object "${result.file_name}" striped across 4 nodes</span>
         </div>
         <div class="result-row">
-          <span class="result-icon">🆔</span>
-          <span>File ID: <code style="font-family:var(--font-mono);">${result.file_id}</code></span>
+          <span class="result-tag">OBJECT_ID</span>
+          <code>${result.file_id}</code>
         </div>
         <div class="result-row">
-          <span class="result-icon">⚡</span>
-          <span>Latency: <strong>${result.upload_time_ms}ms</strong> &nbsp;·&nbsp; Shards: <strong>${result.data_shards} Data + ${result.parity_shards} Parity</strong> (${formatBytes(result.shard_size)} / node)</span>
+          <span class="result-tag">TELEMETRY</span>
+          <span>Latency: ${result.upload_time_ms}ms &nbsp;&bull;&nbsp; Layout: ${result.data_shards} Data + ${result.parity_shards} Parity (${formatBytes(result.shard_size)}/node)</span>
         </div>
-        <div style="margin-top:14px;display:flex;gap:10px;">
+        <div style="margin-top:12px;">
           <button class="btn btn-download" onclick="Downloader.download('${result.file_id}', decodeURIComponent('${encodedName}'))">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            Download "${result.file_name}"
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            RETRIEVE "${result.file_name}"
           </button>
         </div>
       </div>`;
@@ -127,53 +126,47 @@ const Uploader = {
   animateShardFlow(result) {
     const flow = document.getElementById('shard-flow');
     if (!flow) return;
-    flow.style.display = 'flex';
+    flow.style.display = 'grid';
     flow.innerHTML = `
       <div class="shard-box data" id="sf-0" style="opacity:0">
-        <div class="shard-icon">💾</div>
-        <div class="shard-label">Data Shard 0</div>
-        <div class="shard-size">${formatBytes(result.shard_size)}</div>
-        <div class="shard-node">Node 0 :50051</div>
-      </div>
-      <div class="shard-arrow">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        <div class="shard-top">
+          <span class="shard-label">[SHARD_0] DATA</span>
+          <span class="shard-size">${formatBytes(result.shard_size)}</span>
+        </div>
+        <div class="shard-node">NODE_0 :50051</div>
       </div>
       <div class="shard-box data" id="sf-1" style="opacity:0">
-        <div class="shard-icon">💾</div>
-        <div class="shard-label">Data Shard 1</div>
-        <div class="shard-size">${formatBytes(result.shard_size)}</div>
-        <div class="shard-node">Node 1 :50051</div>
-      </div>
-      <div class="shard-arrow">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        <div class="shard-top">
+          <span class="shard-label">[SHARD_1] DATA</span>
+          <span class="shard-size">${formatBytes(result.shard_size)}</span>
+        </div>
+        <div class="shard-node">NODE_1 :50052</div>
       </div>
       <div class="shard-box data" id="sf-2" style="opacity:0">
-        <div class="shard-icon">💾</div>
-        <div class="shard-label">Data Shard 2</div>
-        <div class="shard-size">${formatBytes(result.shard_size)}</div>
-        <div class="shard-node">Node 2 :50051</div>
-      </div>
-      <div class="shard-arrow">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        <div class="shard-top">
+          <span class="shard-label">[SHARD_2] DATA</span>
+          <span class="shard-size">${formatBytes(result.shard_size)}</span>
+        </div>
+        <div class="shard-node">NODE_2 :50053</div>
       </div>
       <div class="shard-box parity" id="sf-3" style="opacity:0">
-        <div class="shard-icon">🛡️</div>
-        <div class="shard-label">Parity Shard</div>
-        <div class="shard-size">${formatBytes(result.shard_size)}</div>
-        <div class="shard-node" style="color:var(--amber);">Node 3 :50051</div>
+        <div class="shard-top">
+          <span class="shard-label">[PARITY] RS_GF8</span>
+          <span class="shard-size">${formatBytes(result.shard_size)}</span>
+        </div>
+        <div class="shard-node" style="color:var(--hw-amber);">NODE_3 :50054</div>
       </div>`;
 
-    // Stagger the shard appearances
     [0, 1, 2, 3].forEach((i, idx) => {
       setTimeout(() => {
         const el = document.getElementById(`sf-${i}`);
         if (el) {
-          el.style.transition = 'opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
-          el.style.transform  = 'translateY(-10px)';
+          el.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+          el.style.transform  = 'translateY(-6px)';
           el.style.opacity    = '1';
-          setTimeout(() => { el.style.transform = 'translateY(0)'; }, 50);
+          setTimeout(() => { el.style.transform = 'translateY(0)'; }, 40);
         }
-      }, idx * 120);
+      }, idx * 100);
     });
   },
 
@@ -182,7 +175,7 @@ const Uploader = {
     if (!res) return;
     res.innerHTML = `
       <div class="result-box error-box">
-        <div class="result-row"><span class="result-icon">❌</span><strong>Upload Failed:</strong> ${msg}</div>
+        <div class="result-row"><span class="result-tag">[ERR]</span><strong>UPLOAD_FAILED:</strong> ${msg}</div>
       </div>`;
   }
 };

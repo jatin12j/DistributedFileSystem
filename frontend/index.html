@@ -3,47 +3,46 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DistFS — Distributed File Storage Dashboard</title>
-  <meta name="description" content="Enterprise Reed-Solomon Erasure Coding (3+1) over a 4-node distributed storage cluster. Live node monitoring, upload, download, and chaos failure simulation.">
+  <title>DistFS — Industrial Ops Console &amp; Shard Matrix</title>
+  <meta name="description" content="Distributed Object Storage with Reed-Solomon RS(3,1) Erasure Coding over a 4-node cluster. Real-time topology monitoring and Galois Field fault reconstruction.">
   
-  <!-- Modern Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
 <!-- ════════════════════════════════════════════════════════ -->
-<!-- DEMO MODE BANNER                                         -->
+<!-- OPS NOTIFICATION STRIP                                   -->
 <!-- ════════════════════════════════════════════════════════ -->
 <div class="demo-banner" id="demo-banner">
-  ⚡ <strong>In-Browser Simulation Active</strong> — Running 4-node Reed-Solomon RS(3+1) striping &amp; parity recovery client-side.
-  <a onclick="resetBackendProbe(); location.reload();">[ Re-probe localhost:8080 ]</a>
+  [SIMULATION_ACTIVE] Running 4-node Reed-Solomon RS(3,1) Galois Field reconstruction in-browser.
+  <a onclick="resetBackendProbe(); location.reload();">[ RE-PROBE LOCALHOST:8080 ]</a>
   &bull;
-  <a onclick="promptCustomBackend();">[ Connect Cloud Coordinator URL ]</a>
+  <a onclick="promptCustomBackend();">[ CONNECT REMOTE COORDINATOR ]</a>
 </div>
 
 <!-- ════════════════════════════════════════════════════════ -->
-<!-- SITE HEADER                                              -->
+<!-- TELEMETRY HEADER                                         -->
 <!-- ════════════════════════════════════════════════════════ -->
 <header id="site-header">
   <div class="header-inner">
     <div class="brand">
       <div class="brand-icon-wrap">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M2 17L12 22L22 17" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M2 12L12 17L22 12" stroke="#818CF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
         </svg>
       </div>
       <div class="brand-text-wrap">
         <div class="brand-title-row">
           <span class="brand-title">DistFS</span>
-          <span class="brand-version-chip">RS(3+1)</span>
+          <span class="brand-version-chip">RS(3,1)</span>
         </div>
-        <span class="brand-sub">Distributed Object Storage</span>
+        <span class="brand-sub">DISTRIBUTED OBJECT STORAGE // K=3 M=1</span>
       </div>
     </div>
 
@@ -51,16 +50,12 @@
       <div class="arch-pipeline">
         <div class="arch-item">
           <span class="arch-dot go"></span>
-          <span class="arch-label">Go Coordinator</span>
+          <span class="arch-label">COORDINATOR :8080</span>
         </div>
-        <div class="arch-arrow">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-          <span>gRPC</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-        </div>
+        <span class="arch-arrow">── gRPC/HTTP2 ──▶</span>
         <div class="arch-item">
           <span class="arch-dot cpp"></span>
-          <span class="arch-label">4× C++ Storage Nodes</span>
+          <span class="arch-label">4× C++ STORAGE NODES</span>
         </div>
       </div>
     </div>
@@ -68,7 +63,7 @@
     <div class="header-right">
       <div id="cluster-badge" class="cluster-badge badge-warn">
         <span class="pulse-halo"></span>
-        <span>Connecting to Cluster…</span>
+        <span>CONNECTING TO CLUSTER…</span>
       </div>
     </div>
   </div>
@@ -77,92 +72,92 @@
 <main>
 
 <!-- ════════════════════════════════════════════════════════ -->
-<!-- STATS BAR                                                -->
+<!-- CLUSTER TELEMETRY BAR                                    -->
 <!-- ════════════════════════════════════════════════════════ -->
 <section class="section stats-section">
   <div class="stats-grid">
     <div class="stat-card">
-      <div class="stat-icon-wrap nodes">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+      <div class="stat-card-top">
+        <span class="stat-label">CLUSTER TOPOLOGY</span>
+        <span class="stat-tag">NODES</span>
       </div>
-      <div class="stat-content">
-        <div class="stat-value" id="stat-nodes">—</div>
-        <div class="stat-label">Online Nodes</div>
-      </div>
+      <div class="stat-value" id="stat-nodes">—</div>
     </div>
 
     <div class="stat-card">
-      <div class="stat-icon-wrap files">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+      <div class="stat-card-top">
+        <span class="stat-label">OBJECTS COMMITTED</span>
+        <span class="stat-tag">STORAGE</span>
       </div>
-      <div class="stat-content">
-        <div class="stat-value" id="file-count">0</div>
-        <div class="stat-label">Files Stored</div>
-      </div>
+      <div class="stat-value" id="file-count">0</div>
     </div>
 
     <div class="stat-card">
-      <div class="stat-icon-wrap health">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+      <div class="stat-card-top">
+        <span class="stat-label">FAULT TOLERANCE</span>
+        <span class="stat-tag">QUORUM</span>
       </div>
-      <div class="stat-content">
-        <div class="stat-value" id="stat-status" style="font-size:1.35rem;">—</div>
-        <div class="stat-label">Cluster Health</div>
-      </div>
+      <div class="stat-value" id="stat-status" style="font-size:1.25rem;">—</div>
     </div>
 
     <div class="stat-card">
-      <div class="stat-icon-wrap status">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+      <div class="stat-card-top">
+        <span class="stat-label">CLUSTER STATE</span>
+        <span class="stat-tag">HEALTH</span>
       </div>
-      <div class="stat-content">
-        <div class="stat-summary" id="stat-summary">Connecting…</div>
-        <div class="stat-label">System State</div>
-      </div>
+      <div class="stat-summary" id="stat-summary">INITIALIZING TELEMETRY…</div>
     </div>
   </div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════ -->
-<!-- NODE GRID                                                -->
+<!-- HARDWARE SLOTS & SHARD MATRIX (SIGNATURE VISUAL)         -->
 <!-- ════════════════════════════════════════════════════════ -->
 <section class="section" id="sec-nodes">
   <div class="section-header">
     <div class="section-title-wrap">
-      <div class="section-icon-badge">📡</div>
-      <h2 class="section-title">Storage Nodes</h2>
+      <span class="section-glyph">[SLOTS]</span>
+      <h2 class="section-title">CLUSTER SHARD RACK &amp; STORAGE NODES</h2>
     </div>
     <div class="section-hint">
       <span class="section-hint-dot"></span>
-      <span>Live Heartbeat • 3s interval</span>
+      <span>HEARTBEAT 3000ms // gRPC POOL</span>
     </div>
   </div>
 
   <div class="node-grid" id="node-grid">
-    <div class="skeleton-card"></div>
-    <div class="skeleton-card"></div>
-    <div class="skeleton-card"></div>
-    <div class="skeleton-card"></div>
+    <div class="node-card" style="opacity:0.4"><div style="padding:40px;text-align:center;font-family:var(--font-mono)">PROBING SLOT 00…</div></div>
+    <div class="node-card" style="opacity:0.4"><div style="padding:40px;text-align:center;font-family:var(--font-mono)">PROBING SLOT 01…</div></div>
+    <div class="node-card" style="opacity:0.4"><div style="padding:40px;text-align:center;font-family:var(--font-mono)">PROBING SLOT 02…</div></div>
+    <div class="node-card" style="opacity:0.4"><div style="padding:40px;text-align:center;font-family:var(--font-mono)">PROBING SLOT 03…</div></div>
+  </div>
+
+  <!-- Real-time Reed-Solomon Reconstruction Pipeline Visualizer -->
+  <div class="reconstruction-pipeline-strip" id="reconstruction-pipeline">
+    <div class="reconstruct-status-group">
+      <span class="reconstruct-badge">OPTIMAL QUORUM</span>
+      <span class="reconstruct-text">All 4 nodes online. Direct zero-overhead parallel shard streaming active.</span>
+    </div>
+    <div class="reconstruct-math">FORMULA: D0 ⊕ D1 ⊕ D2 = P3 &bull; GF(2^8)</div>
   </div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════ -->
-<!-- UPLOAD FILE                                              -->
+<!-- INGESTION & SHARD DISTRIBUTION TARGET                    -->
 <!-- ════════════════════════════════════════════════════════ -->
 <section class="section" id="sec-upload">
   <div class="section-header">
     <div class="section-title-wrap">
-      <div class="section-icon-badge">📤</div>
-      <h2 class="section-title">Upload &amp; Distribute File</h2>
+      <span class="section-glyph">[INGEST]</span>
+      <h2 class="section-title">OBJECT INGESTION &amp; REED-SOLOMON STRIPING</h2>
     </div>
-    <span class="section-hint">Max 100 MB · Reed-Solomon RS(3+1) Encoding</span>
+    <span class="section-hint">SCHEME: RS(3, 1) &bull; MAX 100 MB</span>
   </div>
 
   <div class="upload-zone" id="drop-zone"
        onclick="document.getElementById('file-input').click()"
        role="button" tabindex="0"
        onkeypress="if(event.key==='Enter') document.getElementById('file-input').click()">
-    <div class="upload-glow"></div>
     <div class="upload-body">
       <div class="upload-icon-circle">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -172,16 +167,16 @@
         </svg>
       </div>
       <div class="upload-cta">
-        Drag &amp; drop file here, or <strong>browse device</strong>
+        DRAG &amp; DROP OBJECT TO STRIPE ACROSS CLUSTER, OR <strong>BROWSE SYSTEM</strong>
       </div>
       <div class="upload-sub">
-        Files are automatically split into 3 data shards + 1 parity shard and striped across nodes
+        Object is sliced into 3 data shards + 1 Cauchy parity shard and distributed over parallel gRPC connections
       </div>
       <div class="upload-badges-row">
-        <span class="upload-pill highlight">3 Data Shards</span>
-        <span class="upload-pill parity">1 Parity Shard</span>
-        <span class="upload-pill">Galois Field RS Math</span>
-        <span class="upload-pill">Survives 1 Node Crash</span>
+        <span class="upload-pill highlight">[K=3 DATA SHARDS]</span>
+        <span class="upload-pill parity">[M=1 PARITY SHARD]</span>
+        <span class="upload-pill">[GALOIS FIELD GF(2^8)]</span>
+        <span class="upload-pill">[N-1 TOLERANT]</span>
       </div>
     </div>
   </div>
@@ -192,7 +187,7 @@
     <div class="progress-header">
       <div class="progress-label">
         <div class="progress-spinner"></div>
-        <span id="progress-status-text">Encoding &amp; distributing shards…</span>
+        <span id="progress-status-text">ENCODING &amp; DISPERSING SHARDS…</span>
       </div>
     </div>
     <div class="progress-track">
@@ -203,112 +198,94 @@
 
   <div id="upload-result"></div>
 
-  <!-- Shard distribution visualiser -->
+  <!-- Shard Distribution Matrix -->
   <div id="shard-flow" class="shard-flow" style="display:none"></div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════ -->
-<!-- FILE LIST                                                -->
+<!-- STORED OBJECTS INVENTORY                                 -->
 <!-- ════════════════════════════════════════════════════════ -->
 <section class="section" id="sec-files">
   <div class="section-header">
     <div class="section-title-wrap">
-      <div class="section-icon-badge">📁</div>
-      <h2 class="section-title">Stored Cluster Files</h2>
+      <span class="section-glyph">[STORAGE]</span>
+      <h2 class="section-title">COMMITTED OBJECT INVENTORY</h2>
     </div>
-    <span class="section-hint">Persisted across cluster storage</span>
+    <span class="section-hint">PERSISTENT CLUSTER DATA</span>
   </div>
   <div id="file-list">
     <div class="empty-msg">
-      <div class="empty-icon">📂</div>
-      <div style="font-weight:600;font-size:1rem;color:var(--text-primary);">No files uploaded yet</div>
-      <div style="font-size:0.8rem;color:var(--text-tertiary);">Drag and drop any file in the upload zone above to stripe it across the cluster</div>
+      <div>[INVENTORY_EMPTY] No objects stored in cluster. Upload an object above to begin striping.</div>
     </div>
   </div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════ -->
-<!-- FAILURE SIMULATION (CHAOS PLAYGROUND)                    -->
+<!-- CHAOS / FAULT INJECTION LAB                              -->
 <!-- ════════════════════════════════════════════════════════ -->
 <section class="section" id="sec-demo">
   <div class="section-header">
     <div class="section-title-wrap">
-      <div class="section-icon-badge">🔥</div>
-      <h2 class="section-title">Failure Simulation &amp; Fault Tolerance</h2>
+      <span class="section-glyph">[CHAOS]</span>
+      <h2 class="section-title">FAULT INJECTION &amp; HIGH AVAILABILITY LAB</h2>
     </div>
-    <span class="section-hint">Test Reed-Solomon 3+1 Real-Time Reconstruction</span>
+    <span class="section-hint">VERIFY LIVE REED-SOLOMON DECODER RECOVERY</span>
   </div>
 
   <div class="demo-explanation">
     <div class="demo-exp-item">
-      <span class="demo-step-num">1</span>
-      <span>Upload any file</span>
+      <span class="demo-step-num">01.</span> INGEST OBJECT
     </div>
-    <div class="demo-exp-arrow">→</div>
     <div class="demo-exp-item">
-      <span class="demo-step-num">2</span>
-      <span>Simulate node crash</span>
+      <span class="demo-step-num">02.</span> SIGKILL A NODE
     </div>
-    <div class="demo-exp-arrow">→</div>
     <div class="demo-exp-item">
-      <span class="demo-step-num">3</span>
-      <span>Download the file</span>
+      <span class="demo-step-num">03.</span> REQUEST DOWNLOAD
     </div>
-    <div class="demo-exp-arrow">→</div>
-    <div class="demo-exp-item demo-exp-success">
-      <span class="demo-step-num">✓</span>
-      <span>RS reconstructs from surviving shards!</span>
+    <div class="demo-exp-item" style="border-color:var(--hw-green-border);color:var(--hw-green);">
+      <span class="demo-step-num" style="color:var(--hw-green);">04.</span> RS RECOVERY (100% BIT-EXACT)
     </div>
   </div>
 
   <div class="demo-controls">
     <button class="btn btn-kill" id="kill-0" onclick="Demo.killNode(0)">
-      <span class="btn-icon">⚡</span> Kill Node 0
+      [SIGKILL NODE 0]
     </button>
     <button class="btn btn-kill" id="kill-1" onclick="Demo.killNode(1)">
-      <span class="btn-icon">⚡</span> Kill Node 1
+      [SIGKILL NODE 1]
     </button>
     <button class="btn btn-kill" id="kill-2" onclick="Demo.killNode(2)">
-      <span class="btn-icon">⚡</span> Kill Node 2
+      [SIGKILL NODE 2]
     </button>
     <button class="btn btn-kill" id="kill-3" onclick="Demo.killNode(3)">
-      <span class="btn-icon">⚡</span> Kill Node 3
+      [SIGKILL NODE 3]
     </button>
     <button class="btn btn-recover" onclick="Demo.recoverAll()">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-      Recover All Nodes
+      [QUORUM RESTORE / RECOVER ALL]
     </button>
   </div>
 
   <div class="demo-footnote">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-    <div>
-      <strong>Reed-Solomon RS(3, 1) Guarantee:</strong> With 3 data shards and 1 parity shard, the cluster can suffer complete failure of any 1 node (25% data loss) and mathematically reconstruct 100% of original bytes without corruption.
-    </div>
+    <strong>REED-SOLOMON MATHEMATICAL THEOREM:</strong> With parameters K=3 and M=1, any subset of 3 surviving shards is sufficient to form an invertible Vandermonde/Cauchy matrix in Galois Field GF(2^8). The cluster withstands 25% physical hardware loss with zero downtime.
   </div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════ -->
-<!-- REALTIME ACTIVITY LOG                                    -->
+<!-- REALTIME KERNEL / gRPC EVENT STREAM                      -->
 <!-- ════════════════════════════════════════════════════════ -->
 <section class="section" id="sec-log">
   <div class="section-header">
     <div class="section-title-wrap">
-      <div class="section-icon-badge">📟</div>
-      <h2 class="section-title">Cluster Event Console</h2>
+      <span class="section-glyph">[KERNEL]</span>
+      <h2 class="section-title">CLUSTER EVENT CONSOLE</h2>
     </div>
-    <button class="btn-clear" onclick="Logger.clear()">Clear Log</button>
+    <button class="btn-clear" onclick="Logger.clear()">[CLEAR STREAM]</button>
   </div>
 
   <div class="terminal-window">
     <div class="terminal-header">
-      <div class="terminal-dots">
-        <span class="term-dot red"></span>
-        <span class="term-dot yellow"></span>
-        <span class="term-dot green"></span>
-      </div>
-      <span class="terminal-title">LIVE PROTOCOL &amp; RECONSTRUCTION STREAM</span>
-      <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-tertiary);">PORT 8080</span>
+      <span class="terminal-title">STDOUT // gRPC PROTOCOL &amp; RECONSTRUCTION EVENT LOG</span>
+      <span style="font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);">HOST: 127.0.0.1:8080</span>
     </div>
     <div id="log-panel" class="log-panel"></div>
   </div>
@@ -341,7 +318,7 @@ function setEl(id, val) {
   if (el) el.textContent = val;
 }
 
-// ── File List Modern Renderer ─────────────────────────────────
+// ── File Inventory Industrial Renderer ─────────────────────────
 const FileList = {
   render(files) {
     setEl('file-count', files.length);
@@ -351,37 +328,35 @@ const FileList = {
     if (!files.length) {
       list.innerHTML = `
         <div class="empty-msg">
-          <div class="empty-icon">📂</div>
-          <div style="font-weight:600;font-size:1rem;color:var(--text-primary);">No files uploaded yet</div>
-          <div style="font-size:0.8rem;color:var(--text-tertiary);">Drag and drop any file in the upload zone above to stripe it across the cluster</div>
+          <div>[INVENTORY_EMPTY] No objects stored in cluster. Upload an object above to begin striping.</div>
         </div>`;
       return;
     }
 
     list.innerHTML = files.map((f, idx) => `
       <div class="file-row" id="file-row-${idx}">
-        <div class="file-icon-wrap">
-          <span>${getFileIcon(f.file_name)}</span>
+        <div class="file-glyph-badge">
+          <span>${getFileTypeGlyph(f.file_name)}</span>
         </div>
         <div class="file-info">
           <div class="file-name" title="${f.file_name}">${f.file_name}</div>
           <div class="file-meta">
-            <span><strong>${formatBytes(f.size)}</strong></span>
+            <span>${formatBytes(f.size)}</span>
             <span>&bull;</span>
-            <span>${f.uploaded ? f.uploaded.toLocaleTimeString() : 'Just now'}</span>
+            <span>${f.uploaded ? f.uploaded.toLocaleTimeString() : 'RECENT'}</span>
             <span>&bull;</span>
-            <span class="file-id-badge" title="${f.file_id}">${f.file_id ? f.file_id.substring(0, 16) + '…' : '—'}</span>
+            <span class="file-id-badge" title="${f.file_id}">UUID: ${f.file_id ? f.file_id.substring(0, 16) + '…' : '—'}</span>
           </div>
           <div class="file-tags">
-            <span class="tag tag-data">${f.data_shards || 3} data shards</span>
-            <span class="tag tag-parity">${f.parity_shards || 1} parity shard</span>
+            <span class="tag tag-data">${f.data_shards || 3} DATA SHARDS</span>
+            <span class="tag tag-parity">${f.parity_shards || 1} PARITY SHARD</span>
           </div>
         </div>
         <div class="file-actions">
           <button class="btn btn-download"
                   onclick="Downloader.download('${f.file_id}', decodeURIComponent('${encodeURIComponent(f.file_name)}'))">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            Download
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            RETRIEVE
           </button>
         </div>
       </div>
@@ -389,24 +364,23 @@ const FileList = {
   }
 };
 
-function getFileIcon(name) {
-  if (!name) return '📄';
-  const ext = name.split('.').pop().toLowerCase();
+function getFileTypeGlyph(name) {
+  if (!name) return 'OBJ';
+  const ext = name.split('.').pop().toUpperCase();
   const map = {
-    pdf:'📕', jpg:'🖼️', jpeg:'🖼️', png:'🖼️', gif:'🖼️', svg:'🖼️', webp:'🖼️',
-    mp4:'🎬', mov:'🎬', avi:'🎬', mkv:'🎬', mp3:'🎵', wav:'🎵', flac:'🎵',
-    zip:'📦', tar:'📦', gz:'📦', '7z':'📦', rar:'📦',
-    js:'⚙️', ts:'⚙️', go:'🔷', cpp:'⚡', py:'🐍', java:'☕',
-    json:'📊', csv:'📊', xml:'📊', sql:'🗄️',
-    md:'📝', txt:'📝', doc:'📝', docx:'📝',
+    PDF:'PDF', JPG:'IMG', JPEG:'IMG', PNG:'IMG', GIF:'IMG', WEBP:'IMG',
+    MP4:'VID', MOV:'VID', AVI:'VID', MP3:'AUD', WAV:'AUD',
+    ZIP:'ZIP', TAR:'TAR', GZ:'GZ',
+    JS:'CODE', TS:'CODE', GO:'GO', CPP:'CPP', PY:'PY',
+    JSON:'JSON', CSV:'CSV', TXT:'TXT', MD:'DOC',
   };
-  return map[ext] || '📄';
+  return map[ext] || 'OBJ';
 }
 
-// ── Downloader ────────────────────────────────────────────────
+// ── Downloader & Reconstruction Monitor ───────────────────────
 const Downloader = {
   async download(fileID, fileName) {
-    Logger.info(`📥 Requesting download for "${fileName}"…`);
+    Logger.info(`[RETRIEVE_REQ] Fetching object "${fileName}"…`);
     try {
       const res = await API.downloadFile(fileID);
       const blob = res.blob;
@@ -423,12 +397,8 @@ const Downloader = {
           'image/jpeg': '.jpg',
           'image/jpg': '.jpg',
           'image/webp': '.webp',
-          'image/gif': '.gif',
-          'image/svg+xml': '.svg',
           'application/pdf': '.pdf',
           'text/plain': '.txt',
-          'text/html': '.html',
-          'text/csv': '.csv',
           'application/json': '.json',
           'application/zip': '.zip',
           'video/mp4': '.mp4',
@@ -437,7 +407,7 @@ const Downloader = {
         if (ext) finalName += ext;
       }
 
-      // 3. Trigger save
+      // 3. Trigger download save
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
@@ -452,74 +422,72 @@ const Downloader = {
         URL.revokeObjectURL(url);
       }, 1000);
 
-      Logger.success(`✅ Download verified: "${finalName}" retrieved in ${retrievalTime}ms`);
+      Logger.success(`[RETRIEVE_OK] "${finalName}" verified & assembled in ${retrievalTime}ms`);
     } catch (err) {
-      Logger.error(`❌ Download failed: ${err.message}`);
+      Logger.error(`[RETRIEVE_FAILED] ${err.message}`);
     }
   }
 };
 
-// ── Demo Chaos Controls ───────────────────────────────────────
+// ── Chaos Fault Injection Controls ────────────────────────────
 const Demo = {
   async killNode(nodeIndex) {
-    Logger.warn(`💀 Simulating crash on Node ${nodeIndex}…`);
+    Logger.warn(`[CHAOS_INJECT] SIGKILL dispatched to Slot ${nodeIndex}…`);
     if (!(await API.isLive())) {
       MockBackend.killNode(nodeIndex);
-      Logger.warn(`⚠️ Node ${nodeIndex} is now OFFLINE. Try downloading a file — RS will reconstruct it!`);
+      Logger.warn(`[FAULT_ACTIVE] Node ${nodeIndex} is offline. Parity reconstruction will be invoked on read.`);
     } else {
       try {
         const res = await fetch(`http://localhost:8080/api/admin/kill/${nodeIndex}`, { method: 'POST' });
         if (res.ok) {
-          Logger.warn(`⚠️ Node ${nodeIndex} is now OFFLINE! Try downloading a file — RS will reconstruct it!`);
+          Logger.warn(`[FAULT_ACTIVE] Node ${nodeIndex} terminated! RS Parity reconstruction active.`);
         }
       } catch (e) {
-        Logger.error(`Could not kill node: ${e.message}`);
+        Logger.error(`[ERR_DISPATCH] ${e.message}`);
       }
     }
     const btn = document.getElementById(`kill-${nodeIndex}`);
     if (btn) {
       btn.classList.add('btn-killed');
-      btn.innerHTML = `<span class="btn-icon">💀</span> Node ${nodeIndex} Down`;
+      btn.textContent = `[NODE ${nodeIndex} TERMINATED]`;
     }
     await Dashboard.refresh();
   },
 
   async recoverAll() {
-    Logger.info('🔄 Restoring cluster topology & recovering nodes…');
+    Logger.info('[QUORUM_RESTORE] Restoring physical topology & recovering nodes…');
     if (!(await API.isLive())) {
       MockBackend.recoverAll();
-      Logger.success('✅ All 4 storage nodes restored to ONLINE status!');
+      Logger.success('[QUORUM_RESTORE_OK] All 4 storage nodes restored to ONLINE status.');
     } else {
       try {
         const res = await fetch('http://localhost:8080/api/admin/recover', { method: 'POST' });
         if (res.ok) {
-          Logger.success('✅ All 4 storage nodes restored to ONLINE status!');
+          Logger.success('[QUORUM_RESTORE_OK] All 4 storage nodes restored to ONLINE status.');
         }
       } catch (e) {
-        Logger.error(`Could not recover nodes: ${e.message}`);
+        Logger.error(`[ERR_RESTORE] ${e.message}`);
       }
     }
     [0,1,2,3].forEach(i => {
       const btn = document.getElementById(`kill-${i}`);
       if (btn) {
         btn.classList.remove('btn-killed');
-        btn.innerHTML = `<span class="btn-icon">⚡</span> Kill Node ${i}`;
+        btn.textContent = `[SIGKILL NODE ${i}]`;
       }
     });
     await Dashboard.refresh();
   }
 };
 
-// ── App Initialization ────────────────────────────────────────
+// ── App Init ─────────────────────────────────────────────────
 (async function init() {
-  Logger.info('🚀 DistFS Dashboard initialized — probing coordinator at localhost:8080…');
+  Logger.info('[INIT] DistFS Ops Telemetry starting — probing coordinator at :8080…');
 
   const live = await API.isLive();
   if (!live) {
     document.getElementById('demo-banner').style.display = 'block';
-    Logger.warn('⚡ Demo Mode active — running client simulation');
-    Logger.info('📦 Upload any file to observe Reed-Solomon striping in real-time');
-    Logger.info('💀 Kill a node and download to test RS parity reconstruction');
+    Logger.warn('[MODE: CLIENT_SIM] Running fully in-browser with Web Crypto & RS Galois Field arithmetic.');
 
     const saved = MockBackend.getFiles ? MockBackend.getFiles() : { files: [] };
     if (saved.files.length > 0) {
@@ -533,10 +501,10 @@ const Demo = {
         uploaded:      new Date(f.created_at),
       }));
       FileList.render(Uploader.uploadedFiles);
-      Logger.info(`📂 Restored ${saved.files.length} file(s) from previous local session`);
+      Logger.info(`[RESTORE] Loaded ${saved.files.length} object(s) from local cache.`);
     }
   } else {
-    Logger.success('✅ Real Go Coordinator connected at localhost:8080');
+    Logger.success('[LINK_ESTABLISHED] Connected to Go Coordinator at localhost:8080');
     try {
       const liveData = await API.getFiles();
       if (liveData && liveData.files && liveData.files.length > 0) {
@@ -550,10 +518,10 @@ const Demo = {
           uploaded:      new Date(f.created_at),
         }));
         FileList.render(Uploader.uploadedFiles);
-        Logger.info(`📂 Loaded ${liveData.files.length} file(s) from DFS cluster`);
+        Logger.info(`[SYNC] Synchronized ${liveData.files.length} object(s) from DFS cluster.`);
       }
     } catch (e) {
-      console.warn('Could not load backend files', e);
+      console.warn('Could not sync cluster files', e);
     }
   }
 

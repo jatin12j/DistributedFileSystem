@@ -100,7 +100,7 @@ const API = {
     if (!(await isBackendReachable())) {
       const result = await MockBackend.downloadFile(fileID);
       if (result.reconstructed) {
-        Logger.warn(`🔄 Reed-Solomon RS(3+1) reconstruction used — missing shard recovered!`);
+        Logger.warn(`[RECONSTRUCT_INVOKED] Reed-Solomon RS(3,1) parity invoked — missing shard recovered bit-exact!`);
       }
       return result;
     }
