@@ -327,9 +327,6 @@
 
 <script>
 // ── Shared Helpers ────────────────────────────────────────────
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-window.sleep = sleep;
-
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return '—';
   if (bytes === 0)           return '0 B';

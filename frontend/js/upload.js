@@ -1,8 +1,7 @@
 // frontend/js/upload.js
 // File upload — drag-and-drop + shard distribution visualiser
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-window.sleep = sleep;
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const Uploader = {
   uploadedFiles: [],   // in-memory list for the file table
@@ -35,16 +34,16 @@ const Uploader = {
 
   async upload(file) {
     Logger.info(`📤 Uploading "${file.name}" (${formatBytes(file.size)})`);
-    this.showProgress(true, 0, 'Reading file & computing checksum…');
+    this.showProgress(true, 5, 'Reading file & computing checksum…');
     this.clearResult();
 
     try {
-      // Animate progress bar through phases
+      // Animate progress bar through RS encoding phases
       const phases = [
-        [20, 150, 'Computing Reed-Solomon 3+1 Galois field matrix…'],
-        [45, 180, 'Encoding data shards & generating parity shard…'],
-        [75, 200, 'Distributing shards in parallel across 4 storage nodes…'],
-        [90, 150, 'Verifying quorum & acknowledging replication…'],
+        [20, 200, 'Computing Reed-Solomon 3+1 Galois field matrix…'],
+        [45, 250, 'Encoding data shards & generating parity shard…'],
+        [75, 300, 'Distributing shards across 4 storage nodes…'],
+        [90, 200, 'Verifying quorum & acknowledging replication…'],
       ];
       for (const [pct, delay, label] of phases) {
         await sleep(delay);
@@ -77,7 +76,7 @@ const Uploader = {
       Logger.error(`❌ Upload failed: ${err.message}`);
       this.showError(err.message);
     } finally {
-      setTimeout(() => this.showProgress(false, 0), 1200);
+      setTimeout(() => this.showProgress(false, 0), 1600);
     }
   },
 
