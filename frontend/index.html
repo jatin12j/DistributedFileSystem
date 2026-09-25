@@ -1,782 +1,896 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DistFS — Distributed Storage Console</title>
-  <meta name="description" content="Production infrastructure dashboard for Reed-Solomon Erasure Coding (3+1) 4-node distributed cluster.">
-  
+  <title>DFS — Distributed Storage Console</title>
+  <meta name="description"
+    content="Production infrastructure dashboard for Reed-Solomon Erasure Coding (3+1) 4-node distributed cluster.">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
   <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body class="grid-bg">
 
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- DEMO SIMULATION BANNER (when cloud/mock active)                        -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<div class="demo-banner" id="demo-banner">
-  <span>⚡ <strong>Simulation Mode</strong> &bull; Running in-browser Reed-Solomon RS(3+1) Galois Field striping &amp; recovery.</span>
-  <a onclick="resetBackendProbe(); location.reload();">[ Re-probe localhost:8080 ]</a>
-  &bull;
-  <a onclick="promptCustomBackend();">[ Remote Backend URL ]</a>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- 1. TOP NAVIGATION                                                      -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<nav class="top-nav">
-  <div class="nav-left">
-    <a href="#" class="nav-brand">
-      <div class="brand-icon-box">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-          <polyline points="2 17 12 22 22 17"></polyline>
-          <polyline points="2 12 12 17 22 12"></polyline>
-        </svg>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span class="brand-title">DistFS</span>
-        <span class="brand-badge">RS(3+1)</span>
-      </div>
-      <span class="brand-sub">Distributed Object Storage</span>
-    </a>
-
-    <div class="nav-links">
-      <a href="#overview" class="nav-link active" data-nav="overview" onclick="switchTab('overview', event)">Overview</a>
-      <a href="#topology" class="nav-link" data-nav="topology" onclick="switchTab('topology', event)">Topology</a>
-      <a href="#upload" class="nav-link" data-nav="upload" onclick="switchTab('upload', event)">Upload</a>
-      <a href="#files" class="nav-link" data-nav="files" onclick="switchTab('files', event)">Files</a>
-      <a href="#recovery" class="nav-link" data-nav="recovery" onclick="switchTab('recovery', event)">Recovery</a>
-      <a href="#events" class="nav-link" data-nav="events" onclick="switchTab('events', event)">Events</a>
-    </div>
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- DEMO SIMULATION BANNER (when cloud/mock active)                        -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="demo-banner" id="demo-banner">
+    <span>⚡ <strong>Simulation Mode</strong> &bull; Running in-browser Reed-Solomon RS(3+1) Galois Field striping &amp;
+      recovery.</span>
+    <a onclick="resetBackendProbe(); location.reload();">[ Re-probe localhost:8080 ]</a>
+    &bull;
+    <a onclick="promptCustomBackend();">[ Remote Backend URL ]</a>
   </div>
 
-  <div class="nav-right">
-    <div class="cluster-pill" id="cluster-badge">
-      <span class="status-dot green"></span>
-      <span class="status-text">4/4 Nodes Online</span>
-    </div>
-    <div class="meta-chip">
-      <span class="dot-go"></span>
-      <span>Go :8080</span>
-    </div>
-    <div class="meta-chip">
-      <span class="dot-cpp"></span>
-      <span>4× C++ :50051</span>
-    </div>
-  </div>
-</nav>
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- 1. TOP NAVIGATION                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <nav class="top-nav">
+    <div class="nav-left">
+      <a href="#" class="nav-brand">
+        <div class="brand-icon-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="brand-title">DFS</span>
+          <span class="brand-badge">RS(3+1)</span>
+        </div>
+        <span class="brand-sub">Distributed Object Storage</span>
+      </a>
 
-<div class="app-container">
-  <div class="dashboard-layout">
-    
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- MAIN COLUMN                                                        -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div class="main-column">
-
-      <!-- ═════════════════════════════════════════════════════════════ -->
-      <!-- TAB 1: OVERVIEW                                               -->
-      <!-- ═════════════════════════════════════════════════════════════ -->
-      <div class="tab-view active" id="tab-overview">
-        <!-- ── 2. Metric Bar ────────────────────────────────────────── -->
-        <section id="sec-overview" class="metric-bar">
-          <div class="metric-card">
-            <div class="metric-header">
-              <span class="metric-title">Storage Nodes</span>
-              <span class="metric-icon">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/></svg>
-              </span>
-            </div>
-            <div class="metric-value" id="stat-nodes">4 / 4</div>
-            <div class="metric-desc" id="stat-nodes-desc">All nodes online &bull; gRPC sync</div>
-          </div>
-
-          <div class="metric-card">
-            <div class="metric-header">
-              <span class="metric-title">Files Stored</span>
-              <span class="metric-icon">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              </span>
-            </div>
-            <div class="metric-value" id="stat-files">0</div>
-            <div class="metric-desc">3 data shards + 1 parity</div>
-          </div>
-
-          <div class="metric-card">
-            <div class="metric-header">
-              <span class="metric-title">Total Storage Used</span>
-              <span class="metric-icon">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-              </span>
-            </div>
-            <div class="metric-value" id="stat-storage">—</div>
-            <div class="metric-desc" id="stat-storage-sub">Across 40 GB cluster quota</div>
-          </div>
-
-          <div class="metric-card">
-            <div class="metric-header">
-              <span class="metric-title">Fault Tolerance</span>
-              <span class="metric-icon">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              </span>
-            </div>
-            <div class="metric-value" id="stat-fault" style="font-size:16px;">Reed-Solomon RS(3+1)</div>
-            <div class="metric-desc" id="stat-fault-sub">Survives 1 node loss (25%)</div>
-          </div>
-        </section>
-
-        <!-- ── Quick-Start Guide for First-Time Users ────────────────── -->
-        <section class="quick-start-card" id="quick-start-guide">
-          <div class="quick-start-header">
-            <div style="display:flex;align-items:center;gap:10px;">
-              <span class="guide-tag">QUICK DEMO GUIDE</span>
-              <span class="guide-sub">Test Reed-Solomon 3+1 fault-tolerance in 3 easy steps</span>
-            </div>
-            <button type="button" class="btn-dismiss-guide" onclick="document.getElementById('quick-start-guide').style.display='none'" title="Hide guide">✕ Dismiss</button>
-          </div>
-          <div class="guide-steps-grid">
-            <div class="guide-step-item" onclick="loadSampleFile()" title="Click to test with a 1-click sample file">
-              <span class="guide-step-badge">Step 1</span>
-              <div class="guide-step-content">
-                <strong>Upload a File</strong>
-                <span>Upload any file (or click here for 1-click demo). Splits into 3 data + 1 parity shards.</span>
-              </div>
-            </div>
-            <div class="guide-arrow">→</div>
-            <div class="guide-step-item" onclick="Demo.killNode(1)" title="Click to simulate crashing Node 1">
-              <span class="guide-step-badge">Step 2</span>
-              <div class="guide-step-content">
-                <strong>Simulate Node Crash</strong>
-                <span>Click <code class="guide-code">Kill Node 1</code> to simulate sudden hardware loss (25% loss).</span>
-              </div>
-            </div>
-            <div class="guide-arrow">→</div>
-            <div class="guide-step-item" onclick="switchTab('files')" title="Click to jump to Stored Files">
-              <span class="guide-step-badge">Step 3</span>
-              <div class="guide-step-content">
-                <strong>Download &amp; Verify</strong>
-                <span>Click <code class="guide-code">Download</code> — RS reconstructs 100% of bytes from 3 surviving nodes!</span>
-              </div>
-            </div>
-          </div>
-          <div style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--border-subtle);border-radius:var(--radius-xs);font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:8px;">
-            <span style="color:var(--amber);font-size:13px;flex-shrink:0;">💡</span>
-            <span><strong>Fault-Tolerance Rule:</strong> RS(3+1) recovers from <strong>1 node loss</strong> (3 of 4 shards intact). If <strong>2 or more nodes</strong> are killed, quorum is lost and files cannot be recovered until daemons are restored. You can simulate both states anytime.</span>
-          </div>
-        </section>
-
-        <!-- ── 3. Cluster Topology Visual Centerpiece ────────────────── -->
-        <section class="dash-section" id="sec-topology">
-          <div class="section-title-row">
-            <div class="section-heading-group">
-              <span class="section-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="12" y1="8" x2="5" y2="16"/><line x1="12" y1="8" x2="19" y2="16"/></svg>
-              </span>
-              <h2 class="section-title">Cluster Topology</h2>
-            </div>
-            <span class="section-sub" style="font-family:var(--font-mono);font-size:11px;">Live Heartbeat &bull; 3s Interval</span>
-          </div>
-
-          <div class="topology-container">
-            <!-- Go Coordinator Node -->
-            <div class="coord-box-wrapper">
-              <div class="coord-box">
-                <div class="coord-info">
-                  <div class="coord-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-                  </div>
-                  <div>
-                    <div class="coord-name">Go Coordinator Orchestrator</div>
-                    <div class="coord-meta">REST API :8080 &bull; gRPC Multiplexer &bull; RS(3+1) Engine</div>
-                  </div>
-                </div>
-                <div class="coord-badge">
-                  <span class="status-dot green"></span>
-                  <span>ONLINE</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- SVG Bus Connection Lines with Data-Flow Animation -->
-            <svg class="topology-svg-bus" viewBox="0 0 800 70" preserveAspectRatio="none">
-              <!-- Center Vertical Trunk -->
-              <line x1="400" y1="0" x2="400" y2="35" class="conn-line conn-trunk"></line>
-              <!-- Horizontal Distribution Bus -->
-              <line x1="100" y1="35" x2="700" y2="35" class="conn-line conn-bus" stroke="#2563eb" stroke-width="1.5"></line>
-              <!-- 4 Downward Branches to Nodes -->
-              <line id="conn-branch-0" x1="100" y1="35" x2="100" y2="70" class="conn-line conn-branch active"></line>
-              <line id="conn-branch-1" x1="300" y1="35" x2="300" y2="70" class="conn-line conn-branch active"></line>
-              <line id="conn-branch-2" x1="500" y1="35" x2="500" y2="70" class="conn-line conn-branch active"></line>
-              <line id="conn-branch-3" x1="700" y1="35" x2="700" y2="70" class="conn-line conn-branch active"></line>
-            </svg>
-
-            <!-- 4 Node Information Cards Inside Topology -->
-            <div class="node-cards-grid" id="node-grid">
-              <!-- Rendered dynamically by Dashboard.renderNodes() -->
-            </div>
-          </div>
-        </section>
-
-        <!-- ── Recent Activity / Stored Objects Snapshot ──────────────── -->
-        <section class="recent-activity-card" id="sec-recent-files">
-          <div class="recent-activity-header">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span class="section-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              </span>
-              <h2 class="section-title">Recent Stored Objects</h2>
-            </div>
-            <button type="button" class="btn-view-all-files" onclick="switchTab('files', event)">View All Stored Files →</button>
-          </div>
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Object Name</th>
-                  <th>Size</th>
-                  <th>Shards</th>
-                  <th>Distribution</th>
-                  <th>Status</th>
-                  <th style="text-align:right;">Action</th>
-                </tr>
-              </thead>
-              <tbody id="recent-files-list">
-                <tr>
-                  <td colspan="6" class="table-empty">
-                    No files stored yet. Use the Upload tab to add files to the cluster.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
+      <div class="nav-links">
+        <a href="#overview" class="nav-link active" data-nav="overview"
+          onclick="switchTab('overview', event)">Overview</a>
+        <a href="#topology" class="nav-link" data-nav="topology" onclick="switchTab('topology', event)">Topology</a>
+        <a href="#upload" class="nav-link" data-nav="upload" onclick="switchTab('upload', event)">Upload</a>
+        <a href="#files" class="nav-link" data-nav="files" onclick="switchTab('files', event)">Files</a>
+        <a href="#recovery" class="nav-link" data-nav="recovery" onclick="switchTab('recovery', event)">Recovery</a>
+        <a href="#events" class="nav-link" data-nav="events" onclick="switchTab('events', event)">Events</a>
       </div>
+    </div>
 
-      <!-- ═════════════════════════════════════════════════════════════ -->
-      <!-- TAB 2: TOPOLOGY (DEDICATED FULL VIEW)                         -->
-      <!-- ═════════════════════════════════════════════════════════════ -->
-      <div class="tab-view" id="tab-topology">
-        <section class="dash-section">
-          <div class="section-title-row">
-            <div class="section-heading-group">
-              <span class="section-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="12" y1="8" x2="5" y2="16"/><line x1="12" y1="8" x2="19" y2="16"/></svg>
-              </span>
-              <h2 class="section-title">Cluster Topology &amp; Architecture</h2>
+    <div class="nav-right">
+      <div class="cluster-pill" id="cluster-badge">
+        <span class="status-dot green"></span>
+        <span class="status-text">4/4 Nodes Online</span>
+      </div>
+      <div class="meta-chip">
+        <span class="dot-go"></span>
+        <span>Go :8080</span>
+      </div>
+      <div class="meta-chip">
+        <span class="dot-cpp"></span>
+        <span>4× C++ :50051</span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="app-container">
+    <div class="dashboard-layout">
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- MAIN COLUMN                                                        -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="main-column">
+
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <!-- TAB 1: OVERVIEW                                               -->
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <div class="tab-view active" id="tab-overview">
+          <!-- ── 2. Metric Bar ────────────────────────────────────────── -->
+          <section id="sec-overview" class="metric-bar">
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-title">Storage Nodes</span>
+                <span class="metric-icon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="8" rx="2" />
+                    <rect x="2" y="14" width="20" height="8" rx="2" />
+                  </svg>
+                </span>
+              </div>
+              <div class="metric-value" id="stat-nodes">4 / 4</div>
+              <div class="metric-desc" id="stat-nodes-desc">All nodes online &bull; gRPC sync</div>
             </div>
-            <span class="section-sub">Reed-Solomon RS(3+1) Galois Field GF(2⁸) Distribution</span>
-          </div>
 
-          <div class="topology-container">
-            <!-- Go Coordinator Node -->
-            <div class="coord-box-wrapper">
-              <div class="coord-box">
-                <div class="coord-info">
-                  <div class="coord-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-title">Files Stored</span>
+                <span class="metric-icon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                </span>
+              </div>
+              <div class="metric-value" id="stat-files">0</div>
+              <div class="metric-desc">3 data shards + 1 parity</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-title">Total Storage Used</span>
+                <span class="metric-icon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <ellipse cx="12" cy="5" rx="9" ry="3" />
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                  </svg>
+                </span>
+              </div>
+              <div class="metric-value" id="stat-storage">—</div>
+              <div class="metric-desc" id="stat-storage-sub">Across 40 GB cluster quota</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-title">Fault Tolerance</span>
+                <span class="metric-icon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                </span>
+              </div>
+              <div class="metric-value" id="stat-fault" style="font-size:16px;">Reed-Solomon RS(3+1)</div>
+              <div class="metric-desc" id="stat-fault-sub">Survives 1 node loss (25%)</div>
+            </div>
+          </section>
+
+          <!-- ── Quick-Start Guide for First-Time Users ────────────────── -->
+          <section class="quick-start-card" id="quick-start-guide">
+            <div class="quick-start-header">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="guide-tag">QUICK DEMO GUIDE</span>
+                <span class="guide-sub">Test Reed-Solomon 3+1 fault-tolerance in 3 easy steps</span>
+              </div>
+              <button type="button" class="btn-dismiss-guide"
+                onclick="document.getElementById('quick-start-guide').style.display='none'" title="Hide guide">✕
+                Dismiss</button>
+            </div>
+            <div class="guide-steps-grid">
+              <div class="guide-step-item" onclick="loadSampleFile()" title="Click to test with a 1-click sample file">
+                <span class="guide-step-badge">Step 1</span>
+                <div class="guide-step-content">
+                  <strong>Upload a File</strong>
+                  <span>Upload any file (or click here for 1-click demo). Splits into 3 data + 1 parity shards.</span>
+                </div>
+              </div>
+              <div class="guide-arrow">→</div>
+              <div class="guide-step-item" onclick="Demo.killNode(1)" title="Click to simulate crashing Node 1">
+                <span class="guide-step-badge">Step 2</span>
+                <div class="guide-step-content">
+                  <strong>Simulate Node Crash</strong>
+                  <span>Click <code class="guide-code">Kill Node 1</code> to simulate sudden hardware loss (25%
+                    loss).</span>
+                </div>
+              </div>
+              <div class="guide-arrow">→</div>
+              <div class="guide-step-item" onclick="switchTab('files')" title="Click to jump to Stored Files">
+                <span class="guide-step-badge">Step 3</span>
+                <div class="guide-step-content">
+                  <strong>Download &amp; Verify</strong>
+                  <span>Click <code class="guide-code">Download</code> — RS reconstructs 100% of bytes from 3 surviving
+                    nodes!</span>
+                </div>
+              </div>
+            </div>
+            <div
+              style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--border-subtle);border-radius:var(--radius-xs);font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:8px;">
+              <span style="color:var(--amber);font-size:13px;flex-shrink:0;">💡</span>
+              <span><strong>Fault-Tolerance Rule:</strong> RS(3+1) recovers from <strong>1 node loss</strong> (3 of 4
+                shards intact). If <strong>2 or more nodes</strong> are killed, quorum is lost and files cannot be
+                recovered until daemons are restored. You can simulate both states anytime.</span>
+            </div>
+          </section>
+
+          <!-- ── 3. Cluster Topology Visual Centerpiece ────────────────── -->
+          <section class="dash-section" id="sec-topology">
+            <div class="section-title-row">
+              <div class="section-heading-group">
+                <span class="section-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="5" r="3" />
+                    <circle cx="5" cy="19" r="3" />
+                    <circle cx="19" cy="19" r="3" />
+                    <line x1="12" y1="8" x2="5" y2="16" />
+                    <line x1="12" y1="8" x2="19" y2="16" />
+                  </svg>
+                </span>
+                <h2 class="section-title">Cluster Topology</h2>
+              </div>
+              <span class="section-sub" style="font-family:var(--font-mono);font-size:11px;">Live Heartbeat &bull; 3s
+                Interval</span>
+            </div>
+
+            <div class="topology-container">
+              <!-- Go Coordinator Node -->
+              <div class="coord-box-wrapper">
+                <div class="coord-box">
+                  <div class="coord-info">
+                    <div class="coord-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                        <polyline points="2 17 12 22 22 17" />
+                        <polyline points="2 12 12 17 22 12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="coord-name">Go Coordinator Orchestrator</div>
+                      <div class="coord-meta">REST API :8080 &bull; gRPC Multiplexer &bull; RS(3+1) Engine</div>
+                    </div>
                   </div>
-                  <div>
-                    <div class="coord-name">Go Coordinator Orchestrator</div>
-                    <div class="coord-meta">REST API :8080 &bull; gRPC Multiplexer &bull; RS(3+1) Engine</div>
+                  <div class="coord-badge">
+                    <span class="status-dot green"></span>
+                    <span>ONLINE</span>
                   </div>
                 </div>
-                <div class="coord-badge">
-                  <span class="status-dot green"></span>
-                  <span>ONLINE</span>
+              </div>
+
+              <!-- SVG Bus Connection Lines with Data-Flow Animation -->
+              <svg class="topology-svg-bus" viewBox="0 0 800 70" preserveAspectRatio="none">
+                <!-- Center Vertical Trunk -->
+                <line x1="400" y1="0" x2="400" y2="35" class="conn-line conn-trunk"></line>
+                <!-- Horizontal Distribution Bus -->
+                <line x1="100" y1="35" x2="700" y2="35" class="conn-line conn-bus" stroke="#2563eb" stroke-width="1.5">
+                </line>
+                <!-- 4 Downward Branches to Nodes -->
+                <line id="conn-branch-0" x1="100" y1="35" x2="100" y2="70" class="conn-line conn-branch active"></line>
+                <line id="conn-branch-1" x1="300" y1="35" x2="300" y2="70" class="conn-line conn-branch active"></line>
+                <line id="conn-branch-2" x1="500" y1="35" x2="500" y2="70" class="conn-line conn-branch active"></line>
+                <line id="conn-branch-3" x1="700" y1="35" x2="700" y2="70" class="conn-line conn-branch active"></line>
+              </svg>
+
+              <!-- 4 Node Information Cards Inside Topology -->
+              <div class="node-cards-grid" id="node-grid">
+                <!-- Rendered dynamically by Dashboard.renderNodes() -->
+              </div>
+            </div>
+          </section>
+
+          <!-- ── Recent Activity / Stored Objects Snapshot ──────────────── -->
+          <section class="recent-activity-card" id="sec-recent-files">
+            <div class="recent-activity-header">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="section-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                </span>
+                <h2 class="section-title">Recent Stored Objects</h2>
+              </div>
+              <button type="button" class="btn-view-all-files" onclick="switchTab('files', event)">View All Stored Files
+                →</button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Object Name</th>
+                    <th>Size</th>
+                    <th>Shards</th>
+                    <th>Distribution</th>
+                    <th>Status</th>
+                    <th style="text-align:right;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-files-list">
+                  <tr>
+                    <td colspan="6" class="table-empty">
+                      No files stored yet. Use the Upload tab to add files to the cluster.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <!-- TAB 2: TOPOLOGY (DEDICATED FULL VIEW)                         -->
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <div class="tab-view" id="tab-topology">
+          <section class="dash-section">
+            <div class="section-title-row">
+              <div class="section-heading-group">
+                <span class="section-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="5" r="3" />
+                    <circle cx="5" cy="19" r="3" />
+                    <circle cx="19" cy="19" r="3" />
+                    <line x1="12" y1="8" x2="5" y2="16" />
+                    <line x1="12" y1="8" x2="19" y2="16" />
+                  </svg>
+                </span>
+                <h2 class="section-title">Cluster Topology &amp; Architecture</h2>
+              </div>
+              <span class="section-sub">Reed-Solomon RS(3+1) Galois Field GF(2⁸) Distribution</span>
+            </div>
+
+            <div class="topology-container">
+              <!-- Go Coordinator Node -->
+              <div class="coord-box-wrapper">
+                <div class="coord-box">
+                  <div class="coord-info">
+                    <div class="coord-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                        <polyline points="2 17 12 22 22 17" />
+                        <polyline points="2 12 12 17 22 12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="coord-name">Go Coordinator Orchestrator</div>
+                      <div class="coord-meta">REST API :8080 &bull; gRPC Multiplexer &bull; RS(3+1) Engine</div>
+                    </div>
+                  </div>
+                  <div class="coord-badge">
+                    <span class="status-dot green"></span>
+                    <span>ONLINE</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SVG Bus Connection Lines -->
+              <svg class="topology-svg-bus" viewBox="0 0 800 70" preserveAspectRatio="none">
+                <line x1="400" y1="0" x2="400" y2="35" class="conn-line conn-trunk"></line>
+                <line x1="100" y1="35" x2="700" y2="35" class="conn-line conn-bus" stroke="#2563eb" stroke-width="1.5">
+                </line>
+                <line id="top-conn-branch-0" x1="100" y1="35" x2="100" y2="70" class="conn-line conn-branch active">
+                </line>
+                <line id="top-conn-branch-1" x1="300" y1="35" x2="300" y2="70" class="conn-line conn-branch active">
+                </line>
+                <line id="top-conn-branch-2" x1="500" y1="35" x2="500" y2="70" class="conn-line conn-branch active">
+                </line>
+                <line id="top-conn-branch-3" x1="700" y1="35" x2="700" y2="70" class="conn-line conn-branch active">
+                </line>
+              </svg>
+
+              <!-- 4 Node Information Cards Inside Dedicated Topology -->
+              <div class="node-cards-grid" id="top-node-grid">
+                <!-- Synced with Dashboard.renderNodes() -->
+              </div>
+            </div>
+          </section>
+
+          <!-- Redundancy & Quorum Specification -->
+          <section class="dash-section">
+            <div class="section-title-row">
+              <div class="section-heading-group">
+                <span class="section-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                </span>
+                <h2 class="section-title">Fault-Tolerance &amp; Redundancy Matrix</h2>
+              </div>
+              <span class="section-sub">Maximum Tolerable Node Loss: 1 of 4 (25%)</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;">
+              <div
+                style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xs);padding:14px;">
+                <div
+                  style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--blue);margin-bottom:4px;">
+                  DATA SHARDS (k = 3)</div>
+                <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">Every object is sliced into 3
+                  equal data chunks across Node 0 (:50051), Node 1 (:50052), and Node 2 (:50053).</div>
+              </div>
+              <div
+                style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xs);padding:14px;">
+                <div
+                  style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--amber);margin-bottom:4px;">
+                  PARITY SHARDS (m = 1)</div>
+                <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">Computed using Galois Field
+                  GF(2⁸) Vandermonde generator matrix arithmetic and stored on Node 3 (:50054).</div>
+              </div>
+              <div
+                style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xs);padding:14px;">
+                <div
+                  style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--green);margin-bottom:4px;">
+                  QUORUM REQUIREMENT (3/4)</div>
+                <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">Any 3 surviving shards are
+                  mathematically sufficient to reconstruct 100% of the original payload with zero data loss.</div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <!-- TAB 3: UPLOAD                                                 -->
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <div class="tab-view" id="tab-upload">
+          <section class="dash-section" id="sec-upload">
+            <div class="section-title-row">
+              <div class="section-heading-group">
+                <span class="section-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                </span>
+                <h2 class="section-title">Upload &amp; Distribute File</h2>
+              </div>
+              <span class="section-sub">Split into 3 data shards + 1 parity shard via Reed-Solomon RS(3+1)</span>
+            </div>
+
+            <div class="upload-dropzone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+              <div class="upload-icon-container">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              </div>
+              <div class="upload-prompt">
+                Drag &amp; drop file here or <span>Browse files</span>
+              </div>
+              <div class="upload-hint">
+                Maximum 100 MB &bull; Galois Field GF(2⁸) Erasure Coding &bull; Survives 1 Node Crash
+              </div>
+              <div class="upload-demo-cta">
+                <span>First time here?</span>
+                <button type="button" class="btn-demo-file" onclick="event.stopPropagation(); loadSampleFile();">
+                  <span>⚡</span> Try with 1-Click Demo File
+                </button>
+              </div>
+            </div>
+
+            <input type="file" id="file-input" style="display:none" aria-label="Select file to upload">
+
+            <!-- Visual Reed-Solomon Encoding Flowchart (Requirement 6) -->
+            <div class="rs-upload-visual-pipeline" id="rs-upload-visual-pipeline">
+              <!-- Level 1: File -->
+              <div class="upload-flow-step" id="uf-step-file">
+                <div class="upload-flow-left">
+                  <div class="upload-flow-icon">📄</div>
+                  <div>
+                    <div class="upload-flow-label">Source Object</div>
+                    <div class="upload-flow-val" id="uf-filename">Select or drop a file above</div>
+                  </div>
+                </div>
+                <span class="upload-flow-tag" id="uf-filesize">—</span>
+              </div>
+
+              <!-- Level 1 -> Level 2 Connector -->
+              <div class="upload-flow-arrow">
+                <div class="arrow-pulse-line" id="uf-pulse-1"></div>
+                <span class="arrow-tag">Stream to Go Coordinator :8080</span>
+              </div>
+
+              <!-- Level 2: RS Encoding -->
+              <div class="upload-flow-step" id="uf-step-encode">
+                <div class="upload-flow-left">
+                  <div class="upload-flow-icon">⚡</div>
+                  <div>
+                    <div class="upload-flow-label">Reed-Solomon RS(3+1) Encoding</div>
+                    <div class="upload-flow-val" id="uf-encode-status">Galois Field GF(2⁸) Generator Matrix</div>
+                  </div>
+                </div>
+                <span class="upload-flow-tag ready" id="uf-encode-tag">RS Engine Ready</span>
+              </div>
+
+              <!-- Level 2 -> Level 3 Connector -->
+              <div class="upload-flow-arrow">
+                <div class="arrow-pulse-line" id="uf-pulse-2"></div>
+                <span class="arrow-tag">Parallel gRPC Chunk Distribution</span>
+              </div>
+
+              <!-- Level 3: 4 Shards to 4 Nodes -->
+              <div class="upload-shards-grid" id="uf-shards-grid">
+                <div class="upload-shard-node-card" id="uf-shard-0">
+                  <div class="us-header">
+                    <span class="us-title">Shard 0</span>
+                    <span class="us-badge data">DATA 0</span>
+                  </div>
+                  <div class="us-arrow">↓</div>
+                  <div class="us-node">Node 0 &bull; <code>:50051</code></div>
+                  <div class="us-size" id="uf-sz-0">Awaiting stream…</div>
+                </div>
+
+                <div class="upload-shard-node-card" id="uf-shard-1">
+                  <div class="us-header">
+                    <span class="us-title">Shard 1</span>
+                    <span class="us-badge data">DATA 1</span>
+                  </div>
+                  <div class="us-arrow">↓</div>
+                  <div class="us-node">Node 1 &bull; <code>:50052</code></div>
+                  <div class="us-size" id="uf-sz-1">Awaiting stream…</div>
+                </div>
+
+                <div class="upload-shard-node-card" id="uf-shard-2">
+                  <div class="us-header">
+                    <span class="us-title">Shard 2</span>
+                    <span class="us-badge data">DATA 2</span>
+                  </div>
+                  <div class="us-arrow">↓</div>
+                  <div class="us-node">Node 2 &bull; <code>:50053</code></div>
+                  <div class="us-size" id="uf-sz-2">Awaiting stream…</div>
+                </div>
+
+                <div class="upload-shard-node-card parity" id="uf-shard-3">
+                  <div class="us-header">
+                    <span class="us-title">Parity Shard</span>
+                    <span class="us-badge parity">PARITY 3</span>
+                  </div>
+                  <div class="us-arrow">↓</div>
+                  <div class="us-node">Node 3 &bull; <code>:50054</code></div>
+                  <div class="us-size" id="uf-sz-3">Awaiting stream…</div>
                 </div>
               </div>
             </div>
 
-            <!-- SVG Bus Connection Lines -->
-            <svg class="topology-svg-bus" viewBox="0 0 800 70" preserveAspectRatio="none">
-              <line x1="400" y1="0" x2="400" y2="35" class="conn-line conn-trunk"></line>
-              <line x1="100" y1="35" x2="700" y2="35" class="conn-line conn-bus" stroke="#2563eb" stroke-width="1.5"></line>
-              <line id="top-conn-branch-0" x1="100" y1="35" x2="100" y2="70" class="conn-line conn-branch active"></line>
-              <line id="top-conn-branch-1" x1="300" y1="35" x2="300" y2="70" class="conn-line conn-branch active"></line>
-              <line id="top-conn-branch-2" x1="500" y1="35" x2="500" y2="70" class="conn-line conn-branch active"></line>
-              <line id="top-conn-branch-3" x1="700" y1="35" x2="700" y2="70" class="conn-line conn-branch active"></line>
-            </svg>
+            <!-- Progress Tracking Bar -->
+            <div id="progress-wrap" class="progress-panel">
+              <div class="progress-info">
+                <span id="progress-status-text" class="progress-label-text">Computing Galois Field matrix…</span>
+                <span id="progress-pct" style="color:var(--blue);font-weight:600;">0%</span>
+              </div>
+              <div class="progress-bar-track">
+                <div class="progress-bar-fill" id="progress-fill"></div>
+              </div>
+            </div>
 
-            <!-- 4 Node Information Cards Inside Dedicated Topology -->
-            <div class="node-cards-grid" id="top-node-grid">
-              <!-- Synced with Dashboard.renderNodes() -->
-            </div>
-          </div>
-        </section>
+            <!-- Result Box -->
+            <div id="upload-result" class="upload-result-container"></div>
+          </section>
+        </div>
 
-        <!-- Redundancy & Quorum Specification -->
-        <section class="dash-section">
-          <div class="section-title-row">
-            <div class="section-heading-group">
-              <span class="section-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              </span>
-              <h2 class="section-title">Fault-Tolerance &amp; Redundancy Matrix</h2>
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <!-- TAB 4: FILES                                                  -->
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <div class="tab-view" id="tab-files">
+          <section class="dash-section" id="sec-files">
+            <div class="section-title-row">
+              <div class="section-heading-group">
+                <span class="section-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                </span>
+                <h2 class="section-title">Stored Cluster Files</h2>
+              </div>
+              <span class="section-sub">Striped across 4 C++ storage daemons with Reed-Solomon redundancy</span>
             </div>
-            <span class="section-sub">Maximum Tolerable Node Loss: 1 of 4 (25%)</span>
-          </div>
 
-          <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;">
-            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xs);padding:14px;">
-              <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--blue);margin-bottom:4px;">DATA SHARDS (k = 3)</div>
-              <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">Every object is sliced into 3 equal data chunks across Node 0 (:50051), Node 1 (:50052), and Node 2 (:50053).</div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Object Name</th>
+                    <th>Size</th>
+                    <th>Shards</th>
+                    <th>Distribution</th>
+                    <th>Status</th>
+                    <th>Uploaded</th>
+                    <th style="text-align:right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="file-list">
+                  <tr>
+                    <td colspan="7" class="table-empty">
+                      No files uploaded yet. Drag &amp; drop any file in the upload zone above.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xs);padding:14px;">
-              <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--amber);margin-bottom:4px;">PARITY SHARDS (m = 1)</div>
-              <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">Computed using Galois Field GF(2⁸) Vandermonde generator matrix arithmetic and stored on Node 3 (:50054).</div>
-            </div>
-            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xs);padding:14px;">
-              <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--green);margin-bottom:4px;">QUORUM REQUIREMENT (3/4)</div>
-              <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">Any 3 surviving shards are mathematically sufficient to reconstruct 100% of the original payload with zero data loss.</div>
-            </div>
-          </div>
-        </section>
-      </div>
+          </section>
+        </div>
 
-      <!-- ═════════════════════════════════════════════════════════════ -->
-      <!-- TAB 3: UPLOAD                                                 -->
-      <!-- ═════════════════════════════════════════════════════════════ -->
-      <div class="tab-view" id="tab-upload">
-        <section class="dash-section" id="sec-upload">
-          <div class="section-title-row">
-            <div class="section-heading-group">
-              <span class="section-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              </span>
-              <h2 class="section-title">Upload &amp; Distribute File</h2>
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <!-- TAB 5: RECOVERY (VISUAL 6-STEP REED-SOLOMON PIPELINE)         -->
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <div class="tab-view" id="tab-recovery">
+          <section class="dash-section" id="sec-recovery">
+            <div class="section-title-row">
+              <div class="section-heading-group">
+                <span class="section-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path
+                      d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                </span>
+                <h2 class="section-title">Failure Simulation &amp; Recovery Pipeline</h2>
+              </div>
+              <span class="section-sub">Visual 6-Stage Reed-Solomon GF(2⁸) Dynamic Reconstruction</span>
             </div>
-            <span class="section-sub">Split into 3 data shards + 1 parity shard via Reed-Solomon RS(3+1)</span>
-          </div>
 
-          <div class="upload-dropzone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-            <div class="upload-icon-container">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <!-- 6-Stage Visual Reed-Solomon Process (Requirement 5) -->
+            <div class="rs-pipeline-container" id="rs-recovery-pipeline">
+              <!-- Stage 1: Kill Node -->
+              <div class="rs-stage-card" id="rs-stage-1">
+                <div class="rs-stage-num">1</div>
+                <div class="rs-stage-name">Kill Node</div>
+                <div class="rs-stage-desc">Simulate 25% cluster loss by terminating any storage daemon</div>
+                <span class="rs-stage-status standby">Standby</span>
+              </div>
+
+              <!-- Stage 2: Detect Missing Shard -->
+              <div class="rs-stage-card" id="rs-stage-2">
+                <div class="rs-stage-num">2</div>
+                <div class="rs-stage-name">Detect Missing Shard</div>
+                <div class="rs-stage-desc">Coordinator health check identifies offline node &amp; missing shard index
+                </div>
+                <span class="rs-stage-status standby">Optimal</span>
+              </div>
+
+              <!-- Stage 3: Read Surviving Shards -->
+              <div class="rs-stage-card" id="rs-stage-3">
+                <div class="rs-stage-num">3</div>
+                <div class="rs-stage-name">Read Surviving Shards</div>
+                <div class="rs-stage-desc">Streams remaining 3 shards across surviving gRPC storage daemons</div>
+                <span class="rs-stage-status standby">Standby</span>
+              </div>
+
+              <!-- Stage 4: Reconstruct Missing Shard -->
+              <div class="rs-stage-card" id="rs-stage-4">
+                <div class="rs-stage-num">4</div>
+                <div class="rs-stage-name">Reconstruct Missing Shard</div>
+                <div class="rs-stage-desc">Multiplies inverse Galois Field GF(2⁸) Cauchy/Vandermonde matrix</div>
+                <span class="rs-stage-status standby">Standby</span>
+              </div>
+
+              <!-- Stage 5: Verify Integrity -->
+              <div class="rs-stage-card" id="rs-stage-5">
+                <div class="rs-stage-num">5</div>
+                <div class="rs-stage-name">Verify Integrity</div>
+                <div class="rs-stage-desc">Computes SHA-256 cryptographic digest to verify 100% byte equivalence</div>
+                <span class="rs-stage-status standby">Standby</span>
+              </div>
+
+              <!-- Stage 6: File Recovered -->
+              <div class="rs-stage-card" id="rs-stage-6">
+                <div class="rs-stage-num">6</div>
+                <div class="rs-stage-name">File Recovered</div>
+                <div class="rs-stage-desc">100% reconstructed object returned to client with zero byte corruption</div>
+                <span class="rs-stage-status ready">Ready</span>
+              </div>
             </div>
-            <div class="upload-prompt">
-              Drag &amp; drop file here or <span>Browse files</span>
+
+            <!-- Live Recovery State Banner -->
+            <div class="recovery-state-card" id="recovery-state-container">
+              <div class="recovery-state-indicator">
+                <span class="state-badge optimal">Optimal (4/4)</span>
+                <span class="state-text">All 4 storage nodes healthy &bull; Zero-parity fast-path read active</span>
+              </div>
+              <span style="font-family:var(--font-mono);font-size:11px;color:var(--green);font-weight:600;">✓ 100%
+                Redundant</span>
             </div>
-            <div class="upload-hint">
-              Maximum 100 MB &bull; Galois Field GF(2⁸) Erasure Coding &bull; Survives 1 Node Crash
+
+            <!-- Reed-Solomon Fault Tolerance Rules & Instructions -->
+            <div class="chaos-policy-notice">
+              <div class="cp-header">
+                <span class="cp-icon">i</span>
+                <span class="cp-title">Reed-Solomon RS(3+1) Fault Tolerance Instructions</span>
+              </div>
+              <div class="cp-body">
+                <div class="cp-rule-item ok">
+                  <span class="cp-badge ok">✓ Kill 1 Node (Recoverable)</span>
+                  <span class="cp-text">Leaves <strong>3 surviving shards</strong> (3/4 nodes online). Because <em>k =
+                      3</em>, Reed-Solomon solves for the 1 missing shard on-the-fly with 100% byte integrity. File
+                    download succeeds!</span>
+                </div>
+                <div class="cp-rule-item critical">
+                  <span class="cp-badge critical">✕ Kill 2+ Nodes (Cannot Recover)</span>
+                  <span class="cp-text">Leaves <strong>&le; 2 shards</strong> (&lt; 3 required). Parity redundancy is
+                    exceeded; 1 parity shard cannot solve for 2 missing variables. <strong>Quorum is lost and files
+                      cannot be recovered</strong> until nodes are restored via "Recover All Nodes".</span>
+                </div>
+              </div>
             </div>
-            <div class="upload-demo-cta">
-              <span>First time here?</span>
-              <button type="button" class="btn-demo-file" onclick="event.stopPropagation(); loadSampleFile();">
-                <span>⚡</span> Try with 1-Click Demo File
+
+            <!-- Action Buttons Grid -->
+            <div class="chaos-buttons-grid" id="demo-controls">
+              <button class="btn-chaos-kill" id="kill-0" onclick="Demo.killNode(0)">Kill Node 0</button>
+              <button class="btn-chaos-kill" id="kill-1" onclick="Demo.killNode(1)">Kill Node 1</button>
+              <button class="btn-chaos-kill" id="kill-2" onclick="Demo.killNode(2)">Kill Node 2</button>
+              <button class="btn-chaos-kill" id="kill-3" onclick="Demo.killNode(3)">Kill Node 3</button>
+              <button class="btn-chaos-recover" onclick="Demo.recoverAll()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M23 4v6h-6" />
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+                Recover All Nodes
               </button>
             </div>
-          </div>
 
-          <input type="file" id="file-input" style="display:none" aria-label="Select file to upload">
-
-          <!-- Visual Reed-Solomon Encoding Flowchart (Requirement 6) -->
-          <div class="rs-upload-visual-pipeline" id="rs-upload-visual-pipeline">
-            <!-- Level 1: File -->
-            <div class="upload-flow-step" id="uf-step-file">
-              <div class="upload-flow-left">
-                <div class="upload-flow-icon">📄</div>
+            <!-- Live Verification Trigger -->
+            <div
+              style="margin-top:16px;padding:12px 14px;background:var(--bg-canvas);border:1px solid var(--border);border-radius:var(--radius-xs);display:flex;align-items:center;justify-content:space-between;gap:12px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="color:var(--blue);font-size:14px;">⚡</span>
                 <div>
-                  <div class="upload-flow-label">Source Object</div>
-                  <div class="upload-flow-val" id="uf-filename">Select or drop a file above</div>
+                  <strong style="font-size:12px;color:var(--text-primary)">Test RS Recovery in Real Time</strong>
+                  <div style="font-size:11px;color:var(--text-secondary)">Kill any node above, then trigger a download
+                    to watch the 6-stage reconstruction pipeline execute live!</div>
                 </div>
               </div>
-              <span class="upload-flow-tag" id="uf-filesize">—</span>
+              <button type="button" class="btn-action" onclick="triggerTestRecovery()"
+                title="Trigger test recovery on first available file">
+                Run RS Recovery Test
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <!-- TAB 6: EVENTS (FULL AUDIT LOG)                                -->
+        <!-- ═════════════════════════════════════════════════════════════ -->
+        <div class="tab-view" id="tab-events">
+          <section class="dash-section">
+            <div class="section-title-row">
+              <div class="section-heading-group">
+                <span class="section-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="4 17 10 11 4 5" />
+                    <line x1="12" y1="19" x2="20" y2="19" />
+                  </svg>
+                </span>
+                <h2 class="section-title">Cluster Event Log &amp; Audit Trail</h2>
+              </div>
+              <span class="section-sub">Immutable gRPC stream and coordinator event log</span>
             </div>
 
-            <!-- Level 1 -> Level 2 Connector -->
-            <div class="upload-flow-arrow">
-              <div class="arrow-pulse-line" id="uf-pulse-1"></div>
-              <span class="arrow-tag">Stream to Go Coordinator :8080</span>
-            </div>
-
-            <!-- Level 2: RS Encoding -->
-            <div class="upload-flow-step" id="uf-step-encode">
-              <div class="upload-flow-left">
-                <div class="upload-flow-icon">⚡</div>
-                <div>
-                  <div class="upload-flow-label">Reed-Solomon RS(3+1) Encoding</div>
-                  <div class="upload-flow-val" id="uf-encode-status">Galois Field GF(2⁸) Generator Matrix</div>
+            <div class="events-full-view">
+              <div class="log-filter-row">
+                <div class="log-filter-buttons">
+                  <button type="button" class="btn-log-filter active" onclick="filterLogs('all', this)">All
+                    Events</button>
+                  <button type="button" class="btn-log-filter" onclick="filterLogs('info', this)">Info</button>
+                  <button type="button" class="btn-log-filter" onclick="filterLogs('success', this)">Success</button>
+                  <button type="button" class="btn-log-filter" onclick="filterLogs('warn', this)">Warnings</button>
+                  <button type="button" class="btn-log-filter" onclick="filterLogs('error', this)">Errors</button>
+                </div>
+                <div style="display:flex;gap:6px;">
+                  <button type="button" class="btn-log-filter" onclick="copyLogs()">Copy Logs</button>
+                  <button type="button" class="btn-log-filter" onclick="Logger.clear()">Clear Console</button>
                 </div>
               </div>
-              <span class="upload-flow-tag ready" id="uf-encode-tag">RS Engine Ready</span>
+
+              <div id="full-log-panel" class="events-full-terminal"></div>
             </div>
+          </section>
+        </div>
 
-            <!-- Level 2 -> Level 3 Connector -->
-            <div class="upload-flow-arrow">
-              <div class="arrow-pulse-line" id="uf-pulse-2"></div>
-              <span class="arrow-tag">Parallel gRPC Chunk Distribution</span>
-            </div>
+      </div><!-- /.main-column -->
 
-            <!-- Level 3: 4 Shards to 4 Nodes -->
-            <div class="upload-shards-grid" id="uf-shards-grid">
-              <div class="upload-shard-node-card" id="uf-shard-0">
-                <div class="us-header">
-                  <span class="us-title">Shard 0</span>
-                  <span class="us-badge data">DATA 0</span>
-                </div>
-                <div class="us-arrow">↓</div>
-                <div class="us-node">Node 0 &bull; <code>:50051</code></div>
-                <div class="us-size" id="uf-sz-0">Awaiting stream…</div>
-              </div>
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- RIGHT SIDEBAR COLUMN                                               -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="side-column">
 
-              <div class="upload-shard-node-card" id="uf-shard-1">
-                <div class="us-header">
-                  <span class="us-title">Shard 1</span>
-                  <span class="us-badge data">DATA 1</span>
-                </div>
-                <div class="us-arrow">↓</div>
-                <div class="us-node">Node 1 &bull; <code>:50052</code></div>
-                <div class="us-size" id="uf-sz-1">Awaiting stream…</div>
-              </div>
-
-              <div class="upload-shard-node-card" id="uf-shard-2">
-                <div class="us-header">
-                  <span class="us-title">Shard 2</span>
-                  <span class="us-badge data">DATA 2</span>
-                </div>
-                <div class="us-arrow">↓</div>
-                <div class="us-node">Node 2 &bull; <code>:50053</code></div>
-                <div class="us-size" id="uf-sz-2">Awaiting stream…</div>
-              </div>
-
-              <div class="upload-shard-node-card parity" id="uf-shard-3">
-                <div class="us-header">
-                  <span class="us-title">Parity Shard</span>
-                  <span class="us-badge parity">PARITY 3</span>
-                </div>
-                <div class="us-arrow">↓</div>
-                <div class="us-node">Node 3 &bull; <code>:50054</code></div>
-                <div class="us-size" id="uf-sz-3">Awaiting stream…</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Progress Tracking Bar -->
-          <div id="progress-wrap" class="progress-panel">
-            <div class="progress-info">
-              <span id="progress-status-text" class="progress-label-text">Computing Galois Field matrix…</span>
-              <span id="progress-pct" style="color:var(--blue);font-weight:600;">0%</span>
-            </div>
-            <div class="progress-bar-track">
-              <div class="progress-bar-fill" id="progress-fill"></div>
-            </div>
-          </div>
-
-          <!-- Result Box -->
-          <div id="upload-result" class="upload-result-container"></div>
-        </section>
-      </div>
-
-      <!-- ═════════════════════════════════════════════════════════════ -->
-      <!-- TAB 4: FILES                                                  -->
-      <!-- ═════════════════════════════════════════════════════════════ -->
-      <div class="tab-view" id="tab-files">
-        <section class="dash-section" id="sec-files">
+        <!-- ── 5. Node Controls Panel ─────────────────────────────────── -->
+        <section class="dash-section" id="sec-controls">
           <div class="section-title-row">
             <div class="section-heading-group">
               <span class="section-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3" />
+                  <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
               </span>
-              <h2 class="section-title">Stored Cluster Files</h2>
+              <h2 class="section-title">Node Controls</h2>
             </div>
-            <span class="section-sub">Striped across 4 C++ storage daemons with Reed-Solomon redundancy</span>
+            <span class="section-sub" style="font-family:var(--font-mono);font-size:10px;">gRPC Direct</span>
           </div>
 
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Object Name</th>
-                  <th>Size</th>
-                  <th>Shards</th>
-                  <th>Distribution</th>
-                  <th>Status</th>
-                  <th>Uploaded</th>
-                  <th style="text-align:right;">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="file-list">
-                <tr>
-                  <td colspan="7" class="table-empty">
-                    No files uploaded yet. Drag &amp; drop any file in the upload zone above.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-
-      <!-- ═════════════════════════════════════════════════════════════ -->
-      <!-- TAB 5: RECOVERY (VISUAL 6-STEP REED-SOLOMON PIPELINE)         -->
-      <!-- ═════════════════════════════════════════════════════════════ -->
-      <div class="tab-view" id="tab-recovery">
-        <section class="dash-section" id="sec-recovery">
-          <div class="section-title-row">
-            <div class="section-heading-group">
-              <span class="section-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              </span>
-              <h2 class="section-title">Failure Simulation &amp; Recovery Pipeline</h2>
-            </div>
-            <span class="section-sub">Visual 6-Stage Reed-Solomon GF(2⁸) Dynamic Reconstruction</span>
+          <div class="sidebar-fault-hint">
+            <span class="sfh-dot"></span>
+            <span><strong>RS(3+1) Rule:</strong> Kill <strong>1 node</strong> = Auto-reconstructed ✓. Kill <strong>2+
+                nodes</strong> = Quorum lost ✕. All buttons remain active for testing.</span>
           </div>
 
-          <!-- 6-Stage Visual Reed-Solomon Process (Requirement 5) -->
-          <div class="rs-pipeline-container" id="rs-recovery-pipeline">
-            <!-- Stage 1: Kill Node -->
-            <div class="rs-stage-card" id="rs-stage-1">
-              <div class="rs-stage-num">1</div>
-              <div class="rs-stage-name">Kill Node</div>
-              <div class="rs-stage-desc">Simulate 25% cluster loss by terminating any storage daemon</div>
-              <span class="rs-stage-status standby">Standby</span>
-            </div>
-
-            <!-- Stage 2: Detect Missing Shard -->
-            <div class="rs-stage-card" id="rs-stage-2">
-              <div class="rs-stage-num">2</div>
-              <div class="rs-stage-name">Detect Missing Shard</div>
-              <div class="rs-stage-desc">Coordinator health check identifies offline node &amp; missing shard index</div>
-              <span class="rs-stage-status standby">Optimal</span>
-            </div>
-
-            <!-- Stage 3: Read Surviving Shards -->
-            <div class="rs-stage-card" id="rs-stage-3">
-              <div class="rs-stage-num">3</div>
-              <div class="rs-stage-name">Read Surviving Shards</div>
-              <div class="rs-stage-desc">Streams remaining 3 shards across surviving gRPC storage daemons</div>
-              <span class="rs-stage-status standby">Standby</span>
-            </div>
-
-            <!-- Stage 4: Reconstruct Missing Shard -->
-            <div class="rs-stage-card" id="rs-stage-4">
-              <div class="rs-stage-num">4</div>
-              <div class="rs-stage-name">Reconstruct Missing Shard</div>
-              <div class="rs-stage-desc">Multiplies inverse Galois Field GF(2⁸) Cauchy/Vandermonde matrix</div>
-              <span class="rs-stage-status standby">Standby</span>
-            </div>
-
-            <!-- Stage 5: Verify Integrity -->
-            <div class="rs-stage-card" id="rs-stage-5">
-              <div class="rs-stage-num">5</div>
-              <div class="rs-stage-name">Verify Integrity</div>
-              <div class="rs-stage-desc">Computes SHA-256 cryptographic digest to verify 100% byte equivalence</div>
-              <span class="rs-stage-status standby">Standby</span>
-            </div>
-
-            <!-- Stage 6: File Recovered -->
-            <div class="rs-stage-card" id="rs-stage-6">
-              <div class="rs-stage-num">6</div>
-              <div class="rs-stage-name">File Recovered</div>
-              <div class="rs-stage-desc">100% reconstructed object returned to client with zero byte corruption</div>
-              <span class="rs-stage-status ready">Ready</span>
-            </div>
+          <div class="node-controls-list" id="node-controls-list">
+            <!-- Populated dynamically by Dashboard.renderNodeControls() -->
           </div>
 
-          <!-- Live Recovery State Banner -->
-          <div class="recovery-state-card" id="recovery-state-container">
-            <div class="recovery-state-indicator">
-              <span class="state-badge optimal">Optimal (4/4)</span>
-              <span class="state-text">All 4 storage nodes healthy &bull; Zero-parity fast-path read active</span>
-            </div>
-            <span style="font-family:var(--font-mono);font-size:11px;color:var(--green);font-weight:600;">✓ 100% Redundant</span>
-          </div>
-
-          <!-- Reed-Solomon Fault Tolerance Rules & Instructions -->
-          <div class="chaos-policy-notice">
-            <div class="cp-header">
-              <span class="cp-icon">i</span>
-              <span class="cp-title">Reed-Solomon RS(3+1) Fault Tolerance Instructions</span>
-            </div>
-            <div class="cp-body">
-              <div class="cp-rule-item ok">
-                <span class="cp-badge ok">✓ Kill 1 Node (Recoverable)</span>
-                <span class="cp-text">Leaves <strong>3 surviving shards</strong> (3/4 nodes online). Because <em>k = 3</em>, Reed-Solomon solves for the 1 missing shard on-the-fly with 100% byte integrity. File download succeeds!</span>
-              </div>
-              <div class="cp-rule-item critical">
-                <span class="cp-badge critical">✕ Kill 2+ Nodes (Cannot Recover)</span>
-                <span class="cp-text">Leaves <strong>&le; 2 shards</strong> (&lt; 3 required). Parity redundancy is exceeded; 1 parity shard cannot solve for 2 missing variables. <strong>Quorum is lost and files cannot be recovered</strong> until nodes are restored via "Recover All Nodes".</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Action Buttons Grid -->
-          <div class="chaos-buttons-grid" id="demo-controls">
-            <button class="btn-chaos-kill" id="kill-0" onclick="Demo.killNode(0)">Kill Node 0</button>
-            <button class="btn-chaos-kill" id="kill-1" onclick="Demo.killNode(1)">Kill Node 1</button>
-            <button class="btn-chaos-kill" id="kill-2" onclick="Demo.killNode(2)">Kill Node 2</button>
-            <button class="btn-chaos-kill" id="kill-3" onclick="Demo.killNode(3)">Kill Node 3</button>
-            <button class="btn-chaos-recover" onclick="Demo.recoverAll()">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          <div class="recover-all-wrap">
+            <button class="btn-recover-all" onclick="Demo.recoverAll()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M23 4v6h-6" />
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+              </svg>
               Recover All Nodes
             </button>
           </div>
-
-          <!-- Live Verification Trigger -->
-          <div style="margin-top:16px;padding:12px 14px;background:var(--bg-canvas);border:1px solid var(--border);border-radius:var(--radius-xs);display:flex;align-items:center;justify-content:space-between;gap:12px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="color:var(--blue);font-size:14px;">⚡</span>
-              <div>
-                <strong style="font-size:12px;color:var(--text-primary)">Test RS Recovery in Real Time</strong>
-                <div style="font-size:11px;color:var(--text-secondary)">Kill any node above, then trigger a download to watch the 6-stage reconstruction pipeline execute live!</div>
-              </div>
-            </div>
-            <button type="button" class="btn-action" onclick="triggerTestRecovery()" title="Trigger test recovery on first available file">
-              Run RS Recovery Test
-            </button>
-          </div>
         </section>
-      </div>
 
-      <!-- ═════════════════════════════════════════════════════════════ -->
-      <!-- TAB 6: EVENTS (FULL AUDIT LOG)                                -->
-      <!-- ═════════════════════════════════════════════════════════════ -->
-      <div class="tab-view" id="tab-events">
-        <section class="dash-section">
-          <div class="section-title-row">
-            <div class="section-heading-group">
-              <span class="section-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        <!-- ── 9. Live Event Console (Terminal Style) ─────────────────── -->
+        <section class="terminal-card" id="sec-events">
+          <div class="terminal-topbar">
+            <div class="terminal-title-group">
+              <span class="terminal-title-text">Cluster Event Console</span>
+              <span class="terminal-live-badge">
+                <span class="status-dot green"></span>
+                <span>LIVE</span>
               </span>
-              <h2 class="section-title">Cluster Event Log &amp; Audit Trail</h2>
             </div>
-            <span class="section-sub">Immutable gRPC stream and coordinator event log</span>
+            <button class="btn-term-clear" onclick="Logger.clear()">Clear</button>
           </div>
-
-          <div class="events-full-view">
-            <div class="log-filter-row">
-              <div class="log-filter-buttons">
-                <button type="button" class="btn-log-filter active" onclick="filterLogs('all', this)">All Events</button>
-                <button type="button" class="btn-log-filter" onclick="filterLogs('info', this)">Info</button>
-                <button type="button" class="btn-log-filter" onclick="filterLogs('success', this)">Success</button>
-                <button type="button" class="btn-log-filter" onclick="filterLogs('warn', this)">Warnings</button>
-                <button type="button" class="btn-log-filter" onclick="filterLogs('error', this)">Errors</button>
-              </div>
-              <div style="display:flex;gap:6px;">
-                <button type="button" class="btn-log-filter" onclick="copyLogs()">Copy Logs</button>
-                <button type="button" class="btn-log-filter" onclick="Logger.clear()">Clear Console</button>
-              </div>
-            </div>
-
-            <div id="full-log-panel" class="events-full-terminal"></div>
-          </div>
+          <div id="log-panel" class="terminal-body"></div>
         </section>
-      </div>
 
-    </div><!-- /.main-column -->
+      </div><!-- /.side-column -->
 
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- RIGHT SIDEBAR COLUMN                                               -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div class="side-column">
+    </div><!-- /.dashboard-layout -->
+  </div><!-- /.app-container -->
 
-      <!-- ── 5. Node Controls Panel ─────────────────────────────────── -->
-      <section class="dash-section" id="sec-controls">
-        <div class="section-title-row">
-          <div class="section-heading-group">
-            <span class="section-icon">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            </span>
-            <h2 class="section-title">Node Controls</h2>
-          </div>
-          <span class="section-sub" style="font-family:var(--font-mono);font-size:10px;">gRPC Direct</span>
-        </div>
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SCRIPTS & APPLICATION LOGIC                                            -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <script src="js/mock_backend.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/logger.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/upload.js"></script>
 
-        <div class="sidebar-fault-hint">
-          <span class="sfh-dot"></span>
-          <span><strong>RS(3+1) Rule:</strong> Kill <strong>1 node</strong> = Auto-reconstructed ✓. Kill <strong>2+ nodes</strong> = Quorum lost ✕. All buttons remain active for testing.</span>
-        </div>
+  <script>
+    // ── Shared Utilities ──────────────────────────────────────────────────
+    function formatBytes(bytes) {
+      if (!bytes && bytes !== 0) return '—';
+      if (bytes === 0) return '0 B';
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+      if (bytes < 1073741824) return `${(bytes / 1048576).toFixed(1)} MB`;
+      return `${(bytes / 1073741824).toFixed(2)} GB`;
+    }
 
-        <div class="node-controls-list" id="node-controls-list">
-          <!-- Populated dynamically by Dashboard.renderNodeControls() -->
-        </div>
+    function setEl(id, val) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    }
 
-        <div class="recover-all-wrap">
-          <button class="btn-recover-all" onclick="Demo.recoverAll()">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            Recover All Nodes
-          </button>
-        </div>
-      </section>
+    // ── File List Table Renderer ──────────────────────────────────────────
+    const FileList = {
+      render(files) {
+        setEl('stat-files', files.length);
+        this.renderFull(files);
+        this.renderRecent(files);
+      },
 
-      <!-- ── 9. Live Event Console (Terminal Style) ─────────────────── -->
-      <section class="terminal-card" id="sec-events">
-        <div class="terminal-topbar">
-          <div class="terminal-title-group">
-            <span class="terminal-title-text">Cluster Event Console</span>
-            <span class="terminal-live-badge">
-              <span class="status-dot green"></span>
-              <span>LIVE</span>
-            </span>
-          </div>
-          <button class="btn-term-clear" onclick="Logger.clear()">Clear</button>
-        </div>
-        <div id="log-panel" class="terminal-body"></div>
-      </section>
+      renderFull(files) {
+        const tbody = document.getElementById('file-list');
+        if (!tbody) return;
 
-    </div><!-- /.side-column -->
-
-  </div><!-- /.dashboard-layout -->
-</div><!-- /.app-container -->
-
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- SCRIPTS & APPLICATION LOGIC                                            -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<script src="js/mock_backend.js"></script>
-<script src="js/api.js"></script>
-<script src="js/logger.js"></script>
-<script src="js/dashboard.js"></script>
-<script src="js/upload.js"></script>
-
-<script>
-// ── Shared Utilities ──────────────────────────────────────────────────
-function formatBytes(bytes) {
-  if (!bytes && bytes !== 0) return '—';
-  if (bytes === 0)           return '0 B';
-  if (bytes < 1024)          return `${bytes} B`;
-  if (bytes < 1048576)       return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1073741824)    return `${(bytes / 1048576).toFixed(1)} MB`;
-  return `${(bytes / 1073741824).toFixed(2)} GB`;
-}
-
-function setEl(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = val;
-}
-
-// ── File List Table Renderer ──────────────────────────────────────────
-const FileList = {
-  render(files) {
-    setEl('stat-files', files.length);
-    this.renderFull(files);
-    this.renderRecent(files);
-  },
-
-  renderFull(files) {
-    const tbody = document.getElementById('file-list');
-    if (!tbody) return;
-
-    if (!files.length) {
-      tbody.innerHTML = `
+        if (!files.length) {
+          tbody.innerHTML = `
         <tr>
           <td colspan="7" class="table-empty">
             No files stored in cluster. Drag &amp; drop any file in the upload zone above.
           </td>
         </tr>`;
-      return;
-    }
+          return;
+        }
 
-    tbody.innerHTML = files.map((f, idx) => {
-      const dateStr = f.uploaded instanceof Date
-        ? f.uploaded.toLocaleString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-        : 'Just now';
+        tbody.innerHTML = files.map((f, idx) => {
+          const dateStr = f.uploaded instanceof Date
+            ? f.uploaded.toLocaleString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+            : 'Just now';
 
-      const encodedName = encodeURIComponent(f.file_name);
+          const encodedName = encodeURIComponent(f.file_name);
 
-      return `
+          return `
         <tr id="file-row-${idx}">
           <td>
             <div class="file-name-cell">
@@ -810,27 +924,27 @@ const FileList = {
           </td>
         </tr>
       `;
-    }).join('');
-  },
+        }).join('');
+      },
 
-  renderRecent(files) {
-    const tbody = document.getElementById('recent-files-list');
-    if (!tbody) return;
+      renderRecent(files) {
+        const tbody = document.getElementById('recent-files-list');
+        if (!tbody) return;
 
-    if (!files.length) {
-      tbody.innerHTML = `
+        if (!files.length) {
+          tbody.innerHTML = `
         <tr>
           <td colspan="6" class="table-empty">
             No files stored yet. Use the Upload tab to add files to the cluster.
           </td>
         </tr>`;
-      return;
-    }
+          return;
+        }
 
-    const recent = files.slice(0, 3);
-    tbody.innerHTML = recent.map((f, idx) => {
-      const encodedName = encodeURIComponent(f.file_name);
-      return `
+        const recent = files.slice(0, 3);
+        tbody.innerHTML = recent.map((f, idx) => {
+          const encodedName = encodeURIComponent(f.file_name);
+          return `
         <tr>
           <td>
             <div class="file-name-cell">
@@ -863,232 +977,232 @@ const FileList = {
           </td>
         </tr>
       `;
-    }).join('');
-  }
-};
-
-function getFileIcon(name) {
-  if (!name) return '📄';
-  const ext = name.split('.').pop().toLowerCase();
-  const map = {
-    pdf: '📄', txt: '📝', md: '📝', doc: '📝', docx: '📝',
-    jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', svg: '🖼️', webp: '🖼️',
-    mp4: '🎬', mov: '🎬', mkv: '🎬', mp3: '🎵', wav: '🎵',
-    zip: '📦', tar: '📦', gz: '📦', '7z': '📦',
-    go: '🔷', cpp: '⚡', js: '⚙️', ts: '⚙️', py: '🐍', json: '📊',
-  };
-  return map[ext] || '📄';
-}
-
-// ── Downloader with RS(3+1) Pipeline Integration ──────────────────────
-const Downloader = {
-  async download(fileID, fileName) {
-    let isDegraded = false;
-    try {
-      const status = await API.getClusterStatus();
-      isDegraded = status && status.healthy_nodes === 3;
-    } catch (e) {}
-
-    Logger.info(`↓ Requesting object download: "${fileName}"…`);
-    if (isDegraded) {
-      Logger.warn(`⚠ Node offline detected: Executing Reed-Solomon GF(2⁸) recovery pipeline for "${fileName}"…`);
-      if (window.RecoveryPipeline) {
-        RecoveryPipeline.onDownloadReconstruct(fileName, true);
+        }).join('');
       }
+    };
+
+    function getFileIcon(name) {
+      if (!name) return '📄';
+      const ext = name.split('.').pop().toLowerCase();
+      const map = {
+        pdf: '📄', txt: '📝', md: '📝', doc: '📝', docx: '📝',
+        jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', svg: '🖼️', webp: '🖼️',
+        mp4: '🎬', mov: '🎬', mkv: '🎬', mp3: '🎵', wav: '🎵',
+        zip: '📦', tar: '📦', gz: '📦', '7z': '📦',
+        go: '🔷', cpp: '⚡', js: '⚙️', ts: '⚙️', py: '🐍', json: '📊',
+      };
+      return map[ext] || '📄';
     }
 
-    try {
-      const res = await API.downloadFile(fileID);
-      const blob = res.blob;
-      const retrievalTime = res.retrievalTime || '?';
+    // ── Downloader with RS(3+1) Pipeline Integration ──────────────────────
+    const Downloader = {
+      async download(fileID, fileName) {
+        let isDegraded = false;
+        try {
+          const status = await API.getClusterStatus();
+          isDegraded = status && status.healthy_nodes === 3;
+        } catch (e) { }
 
-      let finalName = (fileName && fileName !== 'undefined') ? fileName : (res.fileName || fileID);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = finalName;
-      document.body.appendChild(a);
-      a.click();
+        Logger.info(`↓ Requesting object download: "${fileName}"…`);
+        if (isDegraded) {
+          Logger.warn(`⚠ Node offline detected: Executing Reed-Solomon GF(2⁸) recovery pipeline for "${fileName}"…`);
+          if (window.RecoveryPipeline) {
+            RecoveryPipeline.onDownloadReconstruct(fileName, true);
+          }
+        }
 
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 1000);
+        try {
+          const res = await API.downloadFile(fileID);
+          const blob = res.blob;
+          const retrievalTime = res.retrievalTime || '?';
 
-      Logger.success(`✓ Download & integrity verified: "${finalName}" in ${retrievalTime}ms`);
-    } catch (err) {
-      Logger.error(`✕ Download failed: ${err.message}`);
-    }
-  }
-};
+          let finalName = (fileName && fileName !== 'undefined') ? fileName : (res.fileName || fileID);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = finalName;
+          document.body.appendChild(a);
+          a.click();
 
-// ── Chaos Simulation Controls ─────────────────────────────────────────
-const Demo = {
-  async killNode(nodeIndex) {
-    Logger.warn(`⚠ Simulating crash on Node ${nodeIndex}…`);
-    try {
-      await API.killNode(nodeIndex);
-    } catch (e) {
-      Logger.error(`Could not kill node: ${e.message}`);
-    }
-    const btn = document.getElementById(`kill-${nodeIndex}`);
-    if (btn) {
-      btn.classList.add('killed');
-      btn.textContent = `Node ${nodeIndex} Down`;
-    }
-    await Dashboard.refresh();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 1000);
 
-    const data = Dashboard.lastData;
-    if (data) {
-      if (data.healthy_nodes === 3) {
-        Logger.warn(`⚠ Node ${nodeIndex} OFFLINE (3/4 online). RS(3+1) active: surviving 3 nodes satisfy k=3 quorum. Files remain 100% recoverable on download!`);
-      } else if (data.healthy_nodes < 3) {
-        Logger.error(`✕ Quorum Lost (${data.healthy_nodes}/4 online): 2+ nodes are offline. 1 parity shard cannot solve for 2 missing shards. Cannot recover until cluster is rebooted via "Recover All Nodes".`);
+          Logger.success(`✓ Download & integrity verified: "${finalName}" in ${retrievalTime}ms`);
+        } catch (err) {
+          Logger.error(`✕ Download failed: ${err.message}`);
+        }
       }
-    }
-  },
+    };
 
-  async recoverAll() {
-    Logger.info('↻ Restoring cluster topology & rebooting storage daemons…');
-    try {
-      await API.recoverAll();
-      Logger.success('✓ All 4 storage daemons restored to ONLINE state');
-    } catch (e) {
-      Logger.error(`Could not recover nodes: ${e.message}`);
-    }
-    [0, 1, 2, 3].forEach(i => {
-      const btn = document.getElementById(`kill-${i}`);
-      if (btn) {
-        btn.classList.remove('killed');
-        btn.textContent = `Kill Node ${i}`;
+    // ── Chaos Simulation Controls ─────────────────────────────────────────
+    const Demo = {
+      async killNode(nodeIndex) {
+        Logger.warn(`⚠ Simulating crash on Node ${nodeIndex}…`);
+        try {
+          await API.killNode(nodeIndex);
+        } catch (e) {
+          Logger.error(`Could not kill node: ${e.message}`);
+        }
+        const btn = document.getElementById(`kill-${nodeIndex}`);
+        if (btn) {
+          btn.classList.add('killed');
+          btn.textContent = `Node ${nodeIndex} Down`;
+        }
+        await Dashboard.refresh();
+
+        const data = Dashboard.lastData;
+        if (data) {
+          if (data.healthy_nodes === 3) {
+            Logger.warn(`⚠ Node ${nodeIndex} OFFLINE (3/4 online). RS(3+1) active: surviving 3 nodes satisfy k=3 quorum. Files remain 100% recoverable on download!`);
+          } else if (data.healthy_nodes < 3) {
+            Logger.error(`✕ Quorum Lost (${data.healthy_nodes}/4 online): 2+ nodes are offline. 1 parity shard cannot solve for 2 missing shards. Cannot recover until cluster is rebooted via "Recover All Nodes".`);
+          }
+        }
+      },
+
+      async recoverAll() {
+        Logger.info('↻ Restoring cluster topology & rebooting storage daemons…');
+        try {
+          await API.recoverAll();
+          Logger.success('✓ All 4 storage daemons restored to ONLINE state');
+        } catch (e) {
+          Logger.error(`Could not recover nodes: ${e.message}`);
+        }
+        [0, 1, 2, 3].forEach(i => {
+          const btn = document.getElementById(`kill-${i}`);
+          if (btn) {
+            btn.classList.remove('killed');
+            btn.textContent = `Kill Node ${i}`;
+          }
+        });
+        await Dashboard.refresh();
       }
+    };
+
+    // ── Tab Switching Navigation System (Requirement 2) ───────────────────
+    function switchTab(tabName, event) {
+      if (event) event.preventDefault();
+      const validTabs = ['overview', 'topology', 'upload', 'files', 'recovery', 'events'];
+      if (!validTabs.includes(tabName)) tabName = 'overview';
+
+      document.querySelectorAll('.nav-link').forEach(link => {
+        if (link.getAttribute('href') === `#${tabName}` || link.dataset.nav === tabName) {
+          link.classList.add('active');
+        } else {
+          link.classList.remove('active');
+        }
+      });
+
+      document.querySelectorAll('.tab-view').forEach(tab => {
+        tab.classList.remove('active');
+      });
+
+      const target = document.getElementById(`tab-${tabName}`);
+      if (target) {
+        target.classList.add('active');
+      }
+
+      if (history.pushState) {
+        history.pushState(null, null, `#${tabName}`);
+      } else {
+        window.location.hash = `#${tabName}`;
+      }
+
+      // Sync logs if events tab
+      if (tabName === 'events') {
+        syncFullLogs();
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    window.addEventListener('hashchange', () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash) switchTab(hash);
     });
-    await Dashboard.refresh();
-  }
-};
 
-// ── Tab Switching Navigation System (Requirement 2) ───────────────────
-function switchTab(tabName, event) {
-  if (event) event.preventDefault();
-  const validTabs = ['overview', 'topology', 'upload', 'files', 'recovery', 'events'];
-  if (!validTabs.includes(tabName)) tabName = 'overview';
-
-  document.querySelectorAll('.nav-link').forEach(link => {
-    if (link.getAttribute('href') === `#${tabName}` || link.dataset.nav === tabName) {
-      link.classList.add('active');
-    } else {
-      link.classList.remove('active');
-    }
-  });
-
-  document.querySelectorAll('.tab-view').forEach(tab => {
-    tab.classList.remove('active');
-  });
-
-  const target = document.getElementById(`tab-${tabName}`);
-  if (target) {
-    target.classList.add('active');
-  }
-
-  if (history.pushState) {
-    history.pushState(null, null, `#${tabName}`);
-  } else {
-    window.location.hash = `#${tabName}`;
-  }
-
-  // Sync logs if events tab
-  if (tabName === 'events') {
-    syncFullLogs();
-  }
-
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-window.addEventListener('hashchange', () => {
-  const hash = window.location.hash.replace('#', '');
-  if (hash) switchTab(hash);
-});
-
-// ── Interactive Recovery Test Runner ──────────────────────────────────
-function triggerTestRecovery() {
-  if (!Uploader.uploadedFiles || !Uploader.uploadedFiles.length) {
-    Logger.warn('⚠ No objects in cluster. Generating sample object first…');
-    loadSampleFile();
-    setTimeout(() => {
-      if (Uploader.uploadedFiles.length) {
-        const f = Uploader.uploadedFiles[0];
-        Downloader.download(f.file_id, f.file_name);
+    // ── Interactive Recovery Test Runner ──────────────────────────────────
+    function triggerTestRecovery() {
+      if (!Uploader.uploadedFiles || !Uploader.uploadedFiles.length) {
+        Logger.warn('⚠ No objects in cluster. Generating sample object first…');
+        loadSampleFile();
+        setTimeout(() => {
+          if (Uploader.uploadedFiles.length) {
+            const f = Uploader.uploadedFiles[0];
+            Downloader.download(f.file_id, f.file_name);
+          }
+        }, 1200);
+        return;
       }
-    }, 1200);
-    return;
-  }
-  const f = Uploader.uploadedFiles[0];
-  Downloader.download(f.file_id, f.file_name);
-}
+      const f = Uploader.uploadedFiles[0];
+      Downloader.download(f.file_id, f.file_name);
+    }
 
-// ── Event Log Viewer & Filtering ──────────────────────────────────────
-function syncFullLogs() {
-  const side = document.getElementById('log-panel');
-  const full = document.getElementById('full-log-panel');
-  if (side && full) {
-    full.innerHTML = side.innerHTML;
-    full.scrollTop = full.scrollHeight;
-  }
-}
+    // ── Event Log Viewer & Filtering ──────────────────────────────────────
+    function syncFullLogs() {
+      const side = document.getElementById('log-panel');
+      const full = document.getElementById('full-log-panel');
+      if (side && full) {
+        full.innerHTML = side.innerHTML;
+        full.scrollTop = full.scrollHeight;
+      }
+    }
 
-function filterLogs(level, btn) {
-  document.querySelectorAll('.btn-log-filter').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
+    function filterLogs(level, btn) {
+      document.querySelectorAll('.btn-log-filter').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
 
-  const full = document.getElementById('full-log-panel');
-  const side = document.getElementById('log-panel');
-  if (!full || !side) return;
+      const full = document.getElementById('full-log-panel');
+      const side = document.getElementById('log-panel');
+      if (!full || !side) return;
 
-  if (level === 'all') {
-    full.innerHTML = side.innerHTML;
-  } else {
-    const entries = side.querySelectorAll(`.log-entry`);
-    const filtered = Array.from(entries).filter(e => e.classList.contains(`log-${level}`));
-    full.innerHTML = filtered.length ? filtered.map(e => e.outerHTML).join('') : '<div style="color:var(--text-muted);padding:10px;">No events matching this level.</div>';
-  }
-  full.scrollTop = full.scrollHeight;
-}
-
-function copyLogs() {
-  const side = document.getElementById('log-panel');
-  if (!side) return;
-  const text = side.innerText;
-  navigator.clipboard.writeText(text).then(() => {
-    Logger.success('✓ Console log copied to clipboard');
-  }).catch(() => {
-    Logger.info('Console log copied');
-  });
-}
-
-// Intercept Logger.add to mirror into full log panel
-const originalLoggerAdd = Logger.add;
-if (originalLoggerAdd) {
-  Logger.add = function(type, msg) {
-    originalLoggerAdd.call(this, type, msg);
-    const full = document.getElementById('full-log-panel');
-    if (full) {
-      const d = new Date();
-      const ts = d.toTimeString().split(' ')[0] + '.' + String(d.getMilliseconds()).padStart(3, '0');
-      const div = document.createElement('div');
-      div.className = `log-entry log-${type}`;
-      div.innerHTML = `<span class="log-ts">${ts}</span><span class="log-msg">${msg}</span>`;
-      full.appendChild(div);
+      if (level === 'all') {
+        full.innerHTML = side.innerHTML;
+      } else {
+        const entries = side.querySelectorAll(`.log-entry`);
+        const filtered = Array.from(entries).filter(e => e.classList.contains(`log-${level}`));
+        full.innerHTML = filtered.length ? filtered.map(e => e.outerHTML).join('') : '<div style="color:var(--text-muted);padding:10px;">No events matching this level.</div>';
+      }
       full.scrollTop = full.scrollHeight;
     }
-  };
-}
 
-// ── 1-Click Sample File Generator for Demo ───────────────────────────
-function loadSampleFile() {
-  Logger.info('⚡ Generating 1-click sample payload for Reed-Solomon demonstration…');
-  const sampleText = 
-`================================================================
+    function copyLogs() {
+      const side = document.getElementById('log-panel');
+      if (!side) return;
+      const text = side.innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        Logger.success('✓ Console log copied to clipboard');
+      }).catch(() => {
+        Logger.info('Console log copied');
+      });
+    }
+
+    // Intercept Logger.add to mirror into full log panel
+    const originalLoggerAdd = Logger.add;
+    if (originalLoggerAdd) {
+      Logger.add = function (type, msg) {
+        originalLoggerAdd.call(this, type, msg);
+        const full = document.getElementById('full-log-panel');
+        if (full) {
+          const d = new Date();
+          const ts = d.toTimeString().split(' ')[0] + '.' + String(d.getMilliseconds()).padStart(3, '0');
+          const div = document.createElement('div');
+          div.className = `log-entry log-${type}`;
+          div.innerHTML = `<span class="log-ts">${ts}</span><span class="log-msg">${msg}</span>`;
+          full.appendChild(div);
+          full.scrollTop = full.scrollHeight;
+        }
+      };
+    }
+
+    // ── 1-Click Sample File Generator for Demo ───────────────────────────
+    function loadSampleFile() {
+      Logger.info('⚡ Generating 1-click sample payload for Reed-Solomon demonstration…');
+      const sampleText =
+        `================================================================
 DISTFS DISTRIBUTED FILE SYSTEM — DEMO PAYLOAD
 Timestamp: ${new Date().toISOString()}
 Architecture: Go Coordinator (Port 8080) + 4x C++ Storage Nodes (:50051-:50054)
@@ -1106,68 +1220,69 @@ this file will trigger on-the-fly reconstruction from the remaining 3 shards wit
 
 ` + "0123456789ABCDEF ".repeat(400);
 
-  const blob = new Blob([sampleText], { type: 'text/plain' });
-  const filename = `demo-sample-${Date.now().toString().slice(-4)}.txt`;
-  const file = new File([blob], filename, { type: 'text/plain' });
-  Uploader.upload(file);
-}
-
-// ── Application Bootstrap ─────────────────────────────────────────────
-(async function init() {
-  Logger.info('● DistFS Console initialized &bull; Probing coordinator at localhost:8080…');
-
-  // Check initial hash route
-  const initialHash = window.location.hash.replace('#', '');
-  if (initialHash && ['overview', 'topology', 'upload', 'files', 'recovery', 'events'].includes(initialHash)) {
-    switchTab(initialHash);
-  }
-
-  const live = await API.isLive();
-  if (!live) {
-    document.getElementById('demo-banner').style.display = 'block';
-    Logger.warn('⚠ Demo Mode active — running client simulation');
-    Logger.info('↑ Upload any file to observe Reed-Solomon striping');
-    Logger.info('⚠ Kill a node and download to test RS parity reconstruction');
-
-    const saved = MockBackend.getFiles ? MockBackend.getFiles() : { files: [] };
-    if (saved.files.length > 0) {
-      Uploader.uploadedFiles = saved.files.map(f => ({
-        file_id:       f.file_id,
-        file_name:     f.file_name,
-        size:          f.original_size,
-        shard_size:    0,
-        data_shards:   f.data_shards,
-        parity_shards: f.parity_shards,
-        uploaded:      new Date(f.created_at),
-      }));
-      FileList.render(Uploader.uploadedFiles);
+      const blob = new Blob([sampleText], { type: 'text/plain' });
+      const filename = `demo-sample-${Date.now().toString().slice(-4)}.txt`;
+      const file = new File([blob], filename, { type: 'text/plain' });
+      Uploader.upload(file);
     }
-  } else {
-    Logger.success('✓ Connected to Go Coordinator at localhost:8080');
-    try {
-      const liveData = await API.getFiles();
-      if (liveData && liveData.files && liveData.files.length > 0) {
-        Uploader.uploadedFiles = liveData.files.map(f => ({
-          file_id:       f.file_id,
-          file_name:     f.file_name,
-          size:          f.original_size,
-          shard_size:    0,
-          data_shards:   f.data_shards || 3,
-          parity_shards: f.parity_shards || 1,
-          uploaded:      new Date(f.created_at),
-        }));
-        FileList.render(Uploader.uploadedFiles);
-        Logger.info(`✓ Loaded ${liveData.files.length} active object(s) from DFS cluster`);
+
+    // ── Application Bootstrap ─────────────────────────────────────────────
+    (async function init() {
+      Logger.info('● DistFS Console initialized &bull; Probing coordinator at localhost:8080…');
+
+      // Check initial hash route
+      const initialHash = window.location.hash.replace('#', '');
+      if (initialHash && ['overview', 'topology', 'upload', 'files', 'recovery', 'events'].includes(initialHash)) {
+        switchTab(initialHash);
       }
-    } catch (e) {
-      console.warn('Could not load backend files', e);
-    }
-  }
 
-  Dashboard.startPolling();
-  Uploader.init();
-})();
-</script>
+      const live = await API.isLive();
+      if (!live) {
+        document.getElementById('demo-banner').style.display = 'block';
+        Logger.warn('⚠ Demo Mode active — running client simulation');
+        Logger.info('↑ Upload any file to observe Reed-Solomon striping');
+        Logger.info('⚠ Kill a node and download to test RS parity reconstruction');
+
+        const saved = MockBackend.getFiles ? MockBackend.getFiles() : { files: [] };
+        if (saved.files.length > 0) {
+          Uploader.uploadedFiles = saved.files.map(f => ({
+            file_id: f.file_id,
+            file_name: f.file_name,
+            size: f.original_size,
+            shard_size: 0,
+            data_shards: f.data_shards,
+            parity_shards: f.parity_shards,
+            uploaded: new Date(f.created_at),
+          }));
+          FileList.render(Uploader.uploadedFiles);
+        }
+      } else {
+        Logger.success('✓ Connected to Go Coordinator at localhost:8080');
+        try {
+          const liveData = await API.getFiles();
+          if (liveData && liveData.files && liveData.files.length > 0) {
+            Uploader.uploadedFiles = liveData.files.map(f => ({
+              file_id: f.file_id,
+              file_name: f.file_name,
+              size: f.original_size,
+              shard_size: 0,
+              data_shards: f.data_shards || 3,
+              parity_shards: f.parity_shards || 1,
+              uploaded: new Date(f.created_at),
+            }));
+            FileList.render(Uploader.uploadedFiles);
+            Logger.info(`✓ Loaded ${liveData.files.length} active object(s) from DFS cluster`);
+          }
+        } catch (e) {
+          console.warn('Could not load backend files', e);
+        }
+      }
+
+      Dashboard.startPolling();
+      Uploader.init();
+    })();
+  </script>
 
 </body>
+
 </html>
